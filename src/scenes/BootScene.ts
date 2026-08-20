@@ -87,7 +87,9 @@ export default class BootScene extends Phaser.Scene {
         // --------------------------------------------------------
         // CORE VEHICLES
         // --------------------------------------------------------
+        // ASSET ROOT
 
+        this.load.setPath("assets");
         this.load.image(
             "sport1",
             "assets/cars/sport1.webp"
@@ -241,7 +243,7 @@ export default class BootScene extends Phaser.Scene {
         // ASSET ROOT
         // ========================================================
         
-        this.load.setPath("assets");
+        
 
         // ========================================================
         // INTRO
@@ -765,16 +767,37 @@ export default class BootScene extends Phaser.Scene {
             "intro_bg"
         );
 
-        bg.setDisplaySize(
-            400,
-            800
+        bg.setDepth(30);
+
+
+        const texture = this.textures.get("intro_bg");
+
+        const source = texture.getSourceImage();
+
+
+        const scale = Math.max(
+            400 / source.width,
+            800 / source.height
         );
 
-        bg.setDepth(30);
-        bg.setAlpha(0);
-        bg.setScale(1.08);
 
-        this.cinematicObjects.push(bg);
+        bg.setScale(scale);
+
+
+        bg.setAlpha(0);
+
+
+        this.tweens.add({
+
+            targets: bg,
+
+            alpha: 1,
+
+            duration: 1500,
+
+            ease: "Power2.out"
+
+        });
 
         // ========================================================
         // COLOR TINT
