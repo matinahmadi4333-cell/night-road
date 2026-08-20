@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import SaveSystem from "../systems/SaveSystem";
 import AudioSystem from "../systems/AudioSystem";
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 
 export default class MenuScene extends Phaser.Scene {
 
@@ -191,7 +193,7 @@ export default class MenuScene extends Phaser.Scene {
             640,
             "EXIT",
             () => {
-                window.location.reload();
+                this.exitApp();
             }
         );
 
@@ -203,6 +205,51 @@ export default class MenuScene extends Phaser.Scene {
             W / 2,
             H - 48
         );
+    }
+
+    // ============================================================
+    // EXIT APP
+    // ============================================================
+    //
+    // window.location.reload() is NOT an exit - it just reloads
+    // the page, which is why the button did nothing useful on
+    // an installed APK. Browsers/webviews don't let plain JS
+    // close themselves for security reasons, so this tries the
+    // native bridges real APK wrappers expose, in order, and
+    // only falls back to window.close() (which mostly only works
+    // if the page was opened by script) if none of them exist.
+    // ============================================================
+
+    private exitApp(): void {
+
+        // Proper way for this project (Capacitor 8):
+        // once @capacitor/app is installed and synced,
+        // this is the reliable path on a real device/APK.
+        if (Capacitor.isNativePlatform()) {
+            App.exitApp();
+            return;
+        }
+
+        const w = window as any;
+
+        // Cordova (kept as a fallback, harmless if unused)
+        if (w.navigator?.app?.exitApp) {
+            w.navigator.app.exitApp();
+            return;
+        }
+
+        // Generic Android WebView bridge some custom
+        // wrappers expose via addJavascriptInterface.
+        if (w.Android?.exitApp) {
+            w.Android.exitApp();
+            return;
+        }
+
+        // Last resort - only works for windows opened by script.
+        // If none of the above worked, there's nothing more JS
+        // can legally do (browsers/webviews block scripted exit
+        // for security). We intentionally show nothing here.
+        window.close();
     }
 
     // ============================================================

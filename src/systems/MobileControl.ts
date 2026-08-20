@@ -82,9 +82,42 @@ export default class MobileControl {
 
     private dragActive = false;
 
-    private dragStartX = 0;
+    // Small deadzone (in px) around the car's own x position,
+    // just to stop 1px jitter from flickering left/right.
+    // Direction is otherwise instant and continuous, based on
+    // where the finger currently is relative to the car — not
+    // relative to where the touch started. This is what makes
+    // it feel like a direct steering wheel instead of a swipe
+    // that needs to "travel" before it registers.
+    private readonly STEER_DEADZONE = 6;
 
-    private readonly DRAG_THRESHOLD = 14;
+    private updateSteerFromPointer(
+        pointer: Phaser.Input.Pointer
+    ): void {
+
+        if (!this.carTarget) {
+            return;
+        }
+
+        const deltaX =
+            pointer.x - this.carTarget.x;
+
+        if (deltaX > this.STEER_DEADZONE) {
+
+            this.left = false;
+            this.right = true;
+
+        } else if (deltaX < -this.STEER_DEADZONE) {
+
+            this.left = true;
+            this.right = false;
+
+        } else {
+
+            this.left = false;
+            this.right = false;
+        }
+    }
 
     private handleCarPointerDown =
         (pointer: Phaser.Input.Pointer) => {
@@ -97,7 +130,10 @@ export default class MobileControl {
             }
 
             this.dragActive = true;
-            this.dragStartX = pointer.x;
+
+            // React the instant the finger lands on the car -
+            // no waiting for movement.
+            this.updateSteerFromPointer(pointer);
         };
 
     private handleDragMove =
@@ -110,24 +146,7 @@ export default class MobileControl {
                 return;
             }
 
-            const deltaX =
-                pointer.x - this.dragStartX;
-
-            if (deltaX > this.DRAG_THRESHOLD) {
-
-                this.left = false;
-                this.right = true;
-
-            } else if (deltaX < -this.DRAG_THRESHOLD) {
-
-                this.left = true;
-                this.right = false;
-
-            } else {
-
-                this.left = false;
-                this.right = false;
-            }
+            this.updateSteerFromPointer(pointer);
         };
 
     private handleDragUp =
