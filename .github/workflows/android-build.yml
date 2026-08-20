@@ -34,10 +34,10 @@ jobs:
           java-version: 21
 
       - name: Build APK
-  	working-directory: android
-  	run: |
-    	chmod +x gradlew
-    	./gradlew assembleDebug
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
