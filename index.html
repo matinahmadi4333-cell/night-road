@@ -20,52 +20,28 @@
             margin: 0;
             padding: 0;
             width: 100%;
-            height: 100%;
-            min-width: 100%;
-            min-height: 100%;
+            height: 100dvh;
             overflow: hidden;
             background: #05040A;
             position: fixed;
             inset: 0;
         }
 
-        html {
-            width: 100vw;
-            height: 100vh;
-        }
-
         body {
-            width: 100vw;
-            height: 100vh;
-            width: 100dvw;
-            height: 100dvh;
             touch-action: none;
             overscroll-behavior: none;
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-touch-callout: none;
         }
 
         #app {
-            width: 100vw;
-            height: 100vh;
-            width: 100dvw;
-            height: 100dvh;
-            display: block;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /*
-         * IMPORTANT:
-         * Do not set canvas width/height here.
-         * Phaser.Scale.ENVELOP owns the canvas display size.
-         * Overriding it with width:100% / height:100% breaks
-         * the Scale Manager's aspect-ratio and input calculations.
-         */
         canvas {
             display: block;
-            margin: 0;
-            padding: 0;
-            touch-action: none;
+            width: 100% !important;
+            height: 100% !important;
         }
     </style>
 

@@ -25,12 +25,8 @@ const config: Phaser.Types.Core.GameConfig = {
     pixelArt: false,
 
     scale: {
-        // The game is authored in a 400x800 portrait composition.
-        // ENVELOP fills the entire parent while preserving aspect ratio.
-        // Unlike FIT, it never creates letterbox bars.
         mode: Phaser.Scale.ENVELOP,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        expandParent: false
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
 
     physics: {
