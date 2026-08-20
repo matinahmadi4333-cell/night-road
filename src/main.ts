@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 import BootScene from "./scenes/BootScene";
 import MenuScene from "./scenes/MenuScene";
@@ -11,99 +12,45 @@ import SettingsScene from "./scenes/SettingsScene";
 
 const config: Phaser.Types.Core.GameConfig = {
 
-
-
-type: Phaser.AUTO,
-
-
-
-width: 400,
-
-
-height: 800,
-
-
-
-backgroundColor:"#05040A",
-
-
-
-parent:"app",
-
-
-
-pixelArt:false,
-
-
-
-
-
-scale:{
-
-
-mode: Phaser.Scale.FIT,
-
-
-autoCenter: Phaser.Scale.CENTER_BOTH
-
-
-},
-
-
-
-
-
-
-physics:{
-
-
-default:"arcade",
-
-
-arcade:{
-
-
-debug:false
-
-
-}
-
-
-},
-
-
-
-
-
-
-scene:[
-
-
-BootScene,
-
-
-MenuScene,
-
-
-GarageScene,
-
-
-GameScene,
-
-PauseScene,
-
-SettingsScene
-]
-
-
-
-
-
+    type: Phaser.AUTO,
+
+    width: 400,
+    height: 800,
+
+    backgroundColor: "#05040A",
+
+    parent: "app",
+
+    pixelArt: false,
+
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+
+    physics: {
+        default: "arcade",
+        arcade: {
+            debug: false
+        }
+    },
+
+    scene: [
+        BootScene,
+        MenuScene,
+        GarageScene,
+        GameScene,
+        PauseScene,
+        SettingsScene
+    ]
 };
 
 
-
-
+// Hide Android status bar for fullscreen game
+StatusBar.hide();
+StatusBar.setStyle({
+    style: Style.Dark
+});
 
 
 new Phaser.Game(config);
