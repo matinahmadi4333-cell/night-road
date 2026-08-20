@@ -24,8 +24,9 @@ const config: Phaser.Types.Core.GameConfig = {
     pixelArt: false,
 
     scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        expandParent: true
     },
 
     physics: {
@@ -46,7 +47,7 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 
-// Full screen mobile
+// Android fullscreen
 StatusBar.hide();
 
 StatusBar.setStyle({
