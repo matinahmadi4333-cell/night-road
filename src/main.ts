@@ -14,8 +14,8 @@ const config: Phaser.Types.Core.GameConfig = {
 
     type: Phaser.AUTO,
 
-    width: 400,
-    height: 800,
+    width: window.innerWidth,
+    height: window.innerHeight,
 
     backgroundColor: "#05040A",
 
@@ -44,6 +44,7 @@ const config: Phaser.Types.Core.GameConfig = {
         PauseScene,
         SettingsScene
     ]
+
 };
 
 
