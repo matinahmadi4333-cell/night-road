@@ -14,8 +14,9 @@ const config: Phaser.Types.Core.GameConfig = {
 
     type: Phaser.AUTO,
 
-    width: window.innerWidth,
-    height: window.innerHeight,
+    // Base game size
+    width: 400,
+    height: 800,
 
     backgroundColor: "#05040A",
 
@@ -24,9 +25,8 @@ const config: Phaser.Types.Core.GameConfig = {
     pixelArt: false,
 
     scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        expandParent: true
+        mode: Phaser.Scale.ENVELOP,
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
 
     physics: {
