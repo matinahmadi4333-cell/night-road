@@ -1496,6 +1496,67 @@ export default class GarageScene extends Phaser.Scene {
     // MENU BUTTON
     // ========================================================
 
+    /**
+     * Returns the logical part of the 400x800 composition that is
+     * currently visible when Phaser uses ENVELOP.
+     *
+     * On very short phones ENVELOP crops a few logical pixels from
+     * the top and bottom. The garage back button is the only main
+     * control close enough to the bottom edge to need compensation.
+     */
+    private getVisibleBottom(): number {
+        const gameW = 400;
+        const gameH = 800;
+
+        const parentW =
+            this.scale.parentSize?.width ||
+            window.innerWidth ||
+            gameW;
+
+        const parentH =
+            this.scale.parentSize?.height ||
+            window.innerHeight ||
+            gameH;
+
+        const coverScale = Math.max(
+            parentW / gameW,
+            parentH / gameH
+        );
+
+        const visibleH = parentH / coverScale;
+
+        return (
+            gameH +
+            Math.min(
+                0,
+                (visibleH - gameH) / 2
+            )
+        );
+    }
+
+    private updateResponsiveMenuButton(): void {
+        if (!this.menuButton) {
+            return;
+        }
+
+        const visibleBottom =
+            this.getVisibleBottom();
+
+        const baseY =
+            CONFIG.layout.menuY;
+
+        // Keep the original 764px position whenever it is visible.
+        // Only move it upward on unusually short portrait screens.
+        const maxY =
+            visibleBottom - 24;
+
+        this.menuButton.y =
+            Math.min(
+                baseY,
+                maxY
+            );
+    }
+
     private buildMenuButton(): void {
 
         this.menuButton =
@@ -1514,6 +1575,25 @@ export default class GarageScene extends Phaser.Scene {
                     );
                 }
             );
+
+        this.updateResponsiveMenuButton();
+
+        this.scale.on(
+            "resize",
+            this.updateResponsiveMenuButton,
+            this
+        );
+
+        this.events.once(
+            "shutdown",
+            () => {
+                this.scale.off(
+                    "resize",
+                    this.updateResponsiveMenuButton,
+                    this
+                );
+            }
+        );
     }
 
     // ========================================================
