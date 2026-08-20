@@ -9,12 +9,11 @@ import GameScene from "./scenes/GameScene";
 import PauseScene from "./scenes/PauseScene";
 import SettingsScene from "./scenes/SettingsScene";
 
-
 const config: Phaser.Types.Core.GameConfig = {
 
     type: Phaser.AUTO,
 
-    // Base game size
+    // ثابت نگه می‌داریم چون تمام بازی روی 400x800 ساخته شده
     width: 400,
     height: 800,
 
@@ -25,13 +24,21 @@ const config: Phaser.Types.Core.GameConfig = {
     pixelArt: false,
 
     scale: {
+
+        // مهم: حفظ نسبت تصویر و پر کردن کامل موبایل
         mode: Phaser.Scale.ENVELOP,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+
+        expandParent: true
     },
 
     physics: {
+
         default: "arcade",
+
         arcade: {
+
             debug: false
         }
     },
@@ -44,16 +51,30 @@ const config: Phaser.Types.Core.GameConfig = {
         PauseScene,
         SettingsScene
     ]
-
 };
 
 
-// Android fullscreen
-StatusBar.hide();
+// اجرای بعد از آماده شدن Capacitor
+async function startGame() {
 
-StatusBar.setStyle({
-    style: Style.Dark
-});
+    try {
+
+        await StatusBar.hide();
+
+        await StatusBar.setStyle({
+            style: Style.Dark
+        });
+
+    } catch (error) {
+
+        console.log("StatusBar not available:", error);
+
+    }
 
 
-new Phaser.Game(config);
+    new Phaser.Game(config);
+
+}
+
+
+startGame();
