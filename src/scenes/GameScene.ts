@@ -206,6 +206,10 @@ export default class GameScene extends Phaser.Scene {
 
     private narrationFinished = false;
 
+    // The supplied MP3 files are the master clock.
+    // Subtitle line changes are aligned to the real speech boundaries in each MP3.
+    private narrationTimeScale = 1;
+
 
     // =========================================================================
     // ENDING (ZONE 5 COMPLETION)
@@ -244,102 +248,122 @@ export default class GameScene extends Phaser.Scene {
         {
             title: "NEON CITY",
             subtitle: "ZONE 01  //  THE ESCAPE",
-            story: "Okay...\nIt's working.\nI...\nI really made it out.\nI thought I would feel different.\nLike I could finally relax.\nBut I can't.\nI keep checking the mirrors.\nThey know I'm gone.\nI don't know how...\nbut they know.\nNo more turning back.\nJust keep driving.",
-            voice: "Okay... It's working. I... I really made it out. I thought I would feel different. Like I could finally relax. But I can't. I keep checking the mirrors. They know I'm gone. I don't know how... but they know. No more turning back. Just keep driving."
+            story: "Okay.\nIt's working.\nI...\nI really made it out.\nI thought I'd feel different.\nI thought I'd finally feel free, but I don't.\nI keep checking the mirrors.\nThey know I'm gone.\nI don't know how, but they know.\nNo more turning back.\nJust keep driving.",
+            voice: "Okay. It's working. I, I really made it out. I thought I'd feel different. I thought I'd finally feel free, but I don't. I keep checking the mirrors. They know I'm gone. I don't know how, but they know. No more turning back. Just keep driving."
         },
         {
             title: "CYBER HIGHWAY",
             subtitle: "ZONE 02  //  NO RETURN",
-            story: "The city is gone now.\nNo lights.\nNo towers.\nJust this road.\nFor a second...\nI thought I lost them.\nI almost believed it.\nI know how they work.\nI helped build this system.\nThey don't stop.\nSo I can't stop.",
-            voice: "The city is gone now. No lights. No towers. Just this road. For a second... I thought I lost them. I almost believed it. I know how they work. I helped build this system. They don't stop. So I can't stop."
+            story: "The city is gone.\nI can't see the lights anymore.\nFor a second, I thought I lost them.\nThat was stupid.\nI know how they work.\nI helped build this system.\nThey don't stop, so I can't stop.",
+            voice: "The city is gone. I can't see the lights anymore. For a second, I thought I lost them. That was stupid. I know how they work. I helped build this system. They don't stop, so I can't stop."
         },
         {
             title: "HUNTER NETWORK",
             subtitle: "ZONE 03  //  HUNTER GRID",
-            story: "Something changed.\nI can feel it.\nThey're not following anymore.\nThey're predicting.\nEvery turn...\nEvery choice...\nThey already know.\nI helped create this.\nAnd now...\nit's coming for me.",
-            voice: "Something changed. I can feel it. They're not following anymore. They're predicting. Every turn... Every choice... They already know. I helped create this. And now... it's coming for me."
+            story: "Something changed.\nI can feel it.\nThey're not following anymore.\nThey're predicting every turn, every choice.\nThey already know.\nI helped create this, and now it's coming for me.",
+            voice: "Something changed. I can feel it. They're not following anymore. They're predicting every turn, every choice. They already know. I helped create this, and now it's coming for me."
         },
         {
             title: "VOID HIGHWAY",
             subtitle: "ZONE 04  //  BLACK SIGNAL",
-            story: "It's quiet...\nToo quiet.\nNo signals.\nNo warnings.\nNothing.\nI spent so much time trying to reach this place.\nA place they couldn't see.\nA place they couldn't control.\nI thought I would feel safe.\nBut...\nsomething feels wrong.\nThe road is still ahead.\nThat's enough.",
-            voice: "It's quiet... Too quiet. No signals. No warnings. Nothing. I spent so much time trying to reach this place. A place they couldn't see. A place they couldn't control. I thought I would feel safe. But... something feels wrong. The road is still ahead. That's enough."
+            story: "It's quiet.\nToo quiet.\nNo signals, no warnings, nothing.\nI spent so much time trying to reach this place, a place they couldn't see, a place they couldn't control.\nI thought I would feel safe, but I don't know.\nSomething feels wrong.\nWhen everything disappears, you start noticing things you tried to forget.\nThe road is still ahead.\nThat's enough.\nKeep going.",
+            voice: "It's quiet. Too quiet. No signals, no warnings, nothing. I spent so much time trying to reach this place, a place they couldn't see, a place they couldn't control. I thought I would feel safe, but I don't know. Something feels wrong. When everything disappears, you start noticing things you tried to forget. The road is still ahead. That's enough. Keep going."
         },
         {
             title: "THE CORE",
             subtitle: "ZONE 05  //  LAST RUN",
-            story: "I'm here.\nThe Core.\nI thought I would have more to say.\nI imagined this moment so many times.\nI thought I'd be angry.\nI thought I'd want answers.\nBut I'm just tired.\nEverything I lost...\nEverything I did...\nIt all led me here.\nThey controlled every road.\nEvery choice.\nEvery person.\nBut they missed one thing.\nI still get to decide.\nThis ends here.",
-            voice: "I'm here. The Core. I thought I would have more to say. I imagined this moment so many times. I thought I'd be angry. I thought I'd want answers. But I'm just tired. Everything I lost... Everything I did... It all led me here. They controlled every road. Every choice. Every person. But they missed one thing. I still get to decide. This ends here."
+            story: "I'm here at the core.\nI thought I would have more to say.\nI imagined this moment so many times.\nI thought I'd be angry.\nI thought I'd want answers.\nBut I'm just tired, really tired.\nEverything I lost,\neverything I did,\nit all led me here.\nThey spent years controlling every road,\nevery choice, every person.\nBut they missed one thing.\nI still get to decide.\nThis ends here.",
+            voice: "I'm here at the core. I thought I would have more to say. I imagined this moment so many times. I thought I'd be angry. I thought I'd want answers. But I'm just tired, really tired. Everything I lost, everything I did, it all led me here. They spent years controlling every road, every choice, every person. But they missed one thing. I still get to decide. This ends here."
         }
     ];
-
     // The supplied audio files are the master clock for subtitles.
-    // These ranges were extracted from the actual voice waveforms.
+    // These timestamps were measured directly from the real zone_voice_*
+    // audio files (silence-gap speech detection), not hand-guessed.
+    // Audio intervals for which the supplied transcript contains no words.
+    // These are intentionally blank rather than filled with guessed text.
+    private readonly ZONE_UNMAPPED_AUDIO: Record<number, Array<{ start: number; end: number }>> = {
+        2: [
+            { start:14.11, end:14.59 },
+            { start:15.10, end:15.91 },
+            { start:17.00, end:18.03 }
+        ]
+    };
+
     private readonly ZONE_NARRATION_LINES: Record<number, Array<{ start: number; end: number; text: string }>> = {
+        // Timestamps are taken from the supplied MP3 waveform.  The display
+        // changes at the actual detected speech onset, not on a guessed timer.
         1: [
-            { start: 0.13, end: 1.34, text: "Okay..." },
-            { start: 2.46, end: 3.30, text: "It's working." },
-            { start: 4.66, end: 5.63, text: "I..." },
-            { start: 6.06, end: 7.22, text: "I really made it out." },
-            { start: 8.26, end: 10.10, text: "I thought I would feel different." },
-            { start: 10.56, end: 12.69, text: "Like I could finally relax." },
-            { start: 13.28, end: 14.18, text: "But I can't." },
-            { start: 15.25, end: 16.53, text: "I keep checking the mirrors." },
-            { start: 17.89, end: 18.88, text: "They know I'm gone." },
-            { start: 19.73, end: 20.91, text: "I don't know how..." },
-            { start: 21.94, end: 22.50, text: "but they know." },
-            { start: 24.29, end: 25.86, text: "No more turning back." },
-            { start: 26.66, end: 27.46, text: "Just keep driving." }
+            { start:0.13, end:1.41, text:"Okay." },
+            { start:2.47, end:3.31, text:"It's working." },
+            { start:4.66, end:5.67, text:"I," },
+            { start:6.07, end:7.22, text:"I really made it out." },
+            { start:8.26, end:10.14, text:"I thought I'd feel different." },
+            { start:10.57, end:12.75, text:"I thought I'd finally feel free," },
+            { start:13.29, end:14.19, text:"but I don't." },
+            { start:15.25, end:16.52, text:"I keep checking the mirrors." },
+            { start:17.89, end:18.90, text:"They know I'm gone." },
+            { start:19.74, end:20.93, text:"I don't know how," },
+            { start:21.82, end:22.50, text:"but they know." },
+            { start:24.28, end:25.88, text:"Just keep" },
+            { start:26.67, end:27.45, text:"driving." }
         ],
         2: [
-            { start: 0.99, end: 3.22, text: "The city is gone now." },
-            { start: 3.92, end: 5.42, text: "No lights." },
-            { start: 6.82, end: 7.52, text: "No towers." },
-            { start: 8.29, end: 9.38, text: "Just this road." },
-            { start: 9.73, end: 12.16, text: "For a second... I thought I lost them." },
-            { start: 12.43, end: 13.86, text: "I almost believed it." },
-            { start: 14.18, end: 14.58, text: "I know how they work." },
-            { start: 15.09, end: 15.78, text: "I helped build this system." },
-            { start: 16.99, end: 17.98, text: "They don't stop. So I can't stop." }
+            { start:0.98, end:1.87, text:"The city is gone." },
+            { start:2.04, end:3.23, text:"I can't see the lights anymore." },
+            { start:3.97, end:5.42, text:"For a second, I thought I lost them." },
+            { start:6.80, end:7.50, text:"That was stupid." },
+            { start:8.31, end:9.39, text:"I know how they work." },
+            { start:9.72, end:11.01, text:"I helped build this system." },
+            { start:11.15, end:12.03, text:"They don't stop," },
+            { start:12.41, end:13.86, text:"so I can't stop." }
+            // NOTE: the supplied zone_voice_2.mp3 contains additional audible
+            // material after 13.86s (around 14.11-15.91 and 17.00-18.03).
+            // No text was supplied for that audio, so it is intentionally not
+            // assigned invented words here.
         ],
         3: [
-            { start: 0.19, end: 2.70, text: "Something changed." },
-            { start: 3.33, end: 5.84, text: "I can feel it." },
-            { start: 6.30, end: 7.14, text: "They're not following anymore." },
-            { start: 7.92, end: 8.82, text: "They're predicting." },
-            { start: 9.46, end: 10.38, text: "Every turn..." },
-            { start: 11.44, end: 12.75, text: "Every choice..." },
-            { start: 13.41, end: 14.02, text: "They already know." },
-            { start: 14.82, end: 15.89, text: "I helped create this. And now... it's coming for me." }
+            { start:0.18, end:2.71, text:"Something changed." },
+            { start:3.34, end:4.84, text:"I can feel it." },
+            { start:5.10, end:5.84, text:"They're not following anymore." },
+            { start:6.32, end:7.12, text:"They're predicting every turn," },
+            { start:7.93, end:8.80, text:"every choice." },
+            { start:9.47, end:10.39, text:"They already know." },
+            { start:11.43, end:12.72, text:"I helped create this," },
+            { start:13.41, end:14.01, text:"and now it's coming" },
+            { start:14.81, end:15.88, text:"for me." }
         ],
         4: [
-            { start: 0.10, end: 1.84, text: "It's quiet..." },
-            { start: 2.50, end: 3.17, text: "Too quiet." },
-            { start: 3.73, end: 5.73, text: "No signals." },
-            { start: 6.88, end: 9.98, text: "No warnings." },
-            { start: 10.29, end: 11.46, text: "Nothing." },
-            { start: 11.79, end: 13.22, text: "I spent so much time trying to reach this place." },
-            { start: 13.50, end: 15.58, text: "A place they couldn't see." },
-            { start: 16.13, end: 16.32, text: "A place they couldn't control." },
-            { start: 17.09, end: 17.66, text: "I thought I would feel safe." },
-            { start: 18.50, end: 19.65, text: "But..." },
-            { start: 20.74, end: 22.27, text: "something feels wrong." },
-            { start: 23.42, end: 25.73, text: "The road is still ahead." },
-            { start: 27.22, end: 29.31, text: "That's enough." }
+            { start:0.10, end:1.89, text:"It's quiet." },
+            { start:2.52, end:3.16, text:"Too quiet." },
+            { start:3.73, end:5.73, text:"No signals, no warnings, nothing." },
+            { start:6.88, end:9.95, text:"I spent so much time trying to reach this place," },
+            { start:10.34, end:11.42, text:"a place they couldn't see," },
+            { start:11.84, end:13.21, text:"a place they couldn't control." },
+            { start:13.51, end:13.96, text:"I thought I would feel safe," },
+            { start:14.13, end:15.57, text:"but I don't know." },
+            { start:16.13, end:16.31, text:"Something" },
+            { start:17.09, end:17.68, text:"feels wrong." },
+            { start:18.50, end:19.65, text:"When everything disappears," },
+            { start:20.74, end:22.26, text:"you start noticing things you tried to forget." },
+            { start:23.43, end:25.71, text:"The road is still ahead." },
+            { start:27.23, end:29.31, text:"That's enough." },
+            { start:29.99, end:30.75, text:"Keep going." }
         ],
         5: [
-            { start: 0.18, end: 1.66, text: "I'm here." },
-            { start: 2.05, end: 3.44, text: "The Core." },
-            { start: 4.05, end: 7.86, text: "I thought I would have more to say." },
-            { start: 8.64, end: 12.22, text: "I imagined this moment so many times." },
-            { start: 12.64, end: 14.18, text: "I thought I'd be angry." },
-            { start: 14.45, end: 15.95, text: "I thought I'd want answers." },
-            { start: 16.43, end: 18.93, text: "But I'm just tired." },
-            { start: 19.55, end: 20.69, text: "Everything I lost..." },
-            { start: 21.89, end: 26.02, text: "Everything I did... It all led me here." },
-            { start: 27.28, end: 28.54, text: "They controlled every road." },
-            { start: 29.31, end: 30.64, text: "Every choice. Every person." },
-            { start: 32.08, end: 33.22, text: "But they missed one thing. I still get to decide. This ends here." }
+            { start:0.17, end:1.77, text:"I'm here at the core." },
+            { start:2.02, end:3.49, text:"I thought I would have more to say." },
+            { start:4.04, end:8.23, text:"I imagined this moment so many times." },
+            { start:8.61, end:11.61, text:"I thought I'd be angry." },
+            { start:11.86, end:12.27, text:"I thought I'd want answers." },
+            { start:12.64, end:14.19, text:"But I'm just tired, really tired." },
+            { start:14.46, end:15.99, text:"Everything I lost," },
+            { start:16.43, end:17.70, text:"everything I did," },
+            { start:17.91, end:19.22, text:"it all led me here." },
+            { start:19.56, end:20.70, text:"They spent years controlling every road," },
+            { start:21.91, end:23.96, text:"every choice, every person." },
+            { start:24.20, end:26.04, text:"But they missed one thing." },
+            { start:27.30, end:28.56, text:"I still get to decide." },
+            { start:29.31, end:30.64, text:"This ends here." }
         ]
     };
 
@@ -2495,6 +2519,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.currentNarrationLine = -1;
         this.narrationFinished = false;
+        this.narrationTimeScale = 1;
 
         const audioKey = `zone_voice_${zone}`;
         this.storyAudioKey = audioKey;
@@ -2505,6 +2530,17 @@ export default class GameScene extends Phaser.Scene {
 
                 this.storyVoicePlaying = true;
                 this.currentZoneSound = sound;
+
+                // The supplied MP3 is the absolute master clock.
+                // Never stretch subtitle timestamps to another duration.
+                this.narrationTimeScale = 1;
+
+                console.log(
+                    "[NARRATION DEBUG] real audio path, zone:", zone,
+                    "assumedDuration:", (this.ZONE_NARRATION_LINES[zone] ?? []).slice(-1)[0]?.end,
+                    "actualDuration:", (sound as any).duration,
+                    "scale:", this.narrationTimeScale
+                );
 
                 sound.once(
                     Phaser.Sound.Events.COMPLETE,
@@ -2536,6 +2572,21 @@ export default class GameScene extends Phaser.Scene {
         this.playFallbackNarration(zone, fallbackText);
     }
 
+    // Rescales the hand-authored ZONE_NARRATION_LINES timestamps (which
+    // were measured against one specific export of the voice file) to the
+    // duration of whatever audio asset is actually loaded and about to
+    // play. Falls back to 1 (no rescale) whenever the real duration can't
+    // be read yet or looks unusable, so it never makes things worse.
+    private computeNarrationTimeScale(
+        sound: Phaser.Sound.BaseSound,
+        zone: number
+    ): number {
+        // Timestamps are measured against the exact supplied MP3 assets.
+        // Never stretch/compress them: sentence boundaries must follow the
+        // real waveform, including pauses inside a single sentence.
+        return 1;
+    }
+
     private updateZoneNarration() {
         if (!this.currentZoneSound || !this.storyVoicePlaying) {
             return;
@@ -2552,14 +2603,34 @@ export default class GameScene extends Phaser.Scene {
                     ? soundAny.seek()
                     : 0;
 
+        // If the audio contains speech that is not present in the supplied
+        // transcript, never display the previous sentence over it.
+        const unmapped = this.ZONE_UNMAPPED_AUDIO[this.currentZone] ?? [];
+        const inUnmappedAudio = unmapped.some(
+            range => time >= range.start && time < range.end
+        );
+        if (inUnmappedAudio) {
+            if (this.currentNarrationLine !== -2) {
+                this.currentNarrationLine = -2;
+                this.zoneStoryText.setText("");
+                this.zoneStoryText.setAlpha(0);
+            }
+            return;
+        }
+
         let lineIndex = -1;
 
+        // The displayed line changes on the next spoken phrase start.
+        // We intentionally keep the previous line during natural micro-pauses
+        // so the UI never flickers or goes blank between two words/phrases.
         for (let i = 0; i < lines.length; i++) {
-            if (time >= lines[i].start && time < lines[i].end) {
-                lineIndex = i;
-                break;
-            }
+            const start = lines[i].start;
+            if (time >= start) lineIndex = i;
+            else break;
         }
+
+        // Before the first phrase there is no line to show.
+        if (time < lines[0].start) lineIndex = -1;
 
         if (lineIndex === this.currentNarrationLine) return;
 
@@ -2576,20 +2647,13 @@ export default class GameScene extends Phaser.Scene {
 
         const line = lines[lineIndex];
 
+        // Exact sync mode: change the text immediately at the audio seek
+        // position. No tween/fade is allowed to introduce visual latency.
         this.zoneStoryText.setText(line.text);
-        this.zoneStoryText.setAlpha(0);
-        this.zoneStoryText.setScale(0.97);
+        this.zoneStoryText.setAlpha(1);
+        this.zoneStoryText.setScale(1);
 
-        this.tweens.add({
-            targets: this.zoneStoryText,
-            alpha: 1,
-            scale: 1,
-            duration: 140,
-            ease: "Cubic.easeOut"
-        });
-
-        // Tiny cinematic impact; it is intentionally subtle.
-        this.cameras.main.shake(45, 0.0012);
+        // Do not add a camera shake here: narration timing should be visually exact.
     }
 
     private showFinalNarrationLine(zone: number) {
@@ -2605,6 +2669,10 @@ export default class GameScene extends Phaser.Scene {
 
     private playFallbackNarration(zone: number, fallbackText: string) {
         const lines = this.ZONE_NARRATION_LINES[zone] ?? [];
+
+        console.log(
+            "[NARRATION DEBUG] fallback TTS path (no zone_voice_" + zone + " audio in cache), zone:", zone
+        );
 
         if (!("speechSynthesis" in window) || !lines.length) {
             this.zoneStoryText.setText(fallbackText);
@@ -3381,7 +3449,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.displaySpeed +=
             this.selectedCarStats.nitro *
-            0.55;
+            1.3;
 
 
         this.displaySpeed =
@@ -5577,7 +5645,7 @@ export default class GameScene extends Phaser.Scene {
                     650,
                     this.targetSpeed +
                     this.selectedCarStats.nitro *
-                    0.55
+                    1.3
                 );
 
         }
@@ -5585,7 +5653,7 @@ export default class GameScene extends Phaser.Scene {
 
         const acceleration =
             this.nitroActive
-                ? 0.1
+                ? 0.32
                 : 0.03;
 
 

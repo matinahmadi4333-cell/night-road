@@ -72,6 +72,15 @@ export default class MobileControl {
 
     private nitroPointerDown = false;
 
+    // Scale (press/release) tweens tracked per-button, separately
+    // from the tutorial fade-out tween. This is what lets us stop
+    // just the scale animation on press without also cancelling
+    // the fade-out tween that's hiding the button (see
+    // pressDriveButton / pressNitroButton for why this matters).
+    private leftScaleTween?: Phaser.Tweens.Tween;
+    private rightScaleTween?: Phaser.Tweens.Tween;
+    private nitroScaleTween?: Phaser.Tweens.Tween;
+
     // ========================================================
     // DRAG / SWIPE STEERING (ON THE CAR)
     // ========================================================
@@ -894,9 +903,18 @@ export default class MobileControl {
         core: Phaser.GameObjects.Graphics
     ): void {
 
-        this.scene.tweens.killTweensOf(
-            button
-        );
+        // Stop only this button's own scale tween - NOT
+        // killTweensOf(button), which would also cancel the
+        // tutorial fade-out tween running on this same
+        // container and leave the button stuck half-visible.
+        const isLeft =
+            button === this.leftButton;
+
+        (
+            isLeft
+                ? this.leftScaleTween
+                : this.rightScaleTween
+        )?.stop();
 
         button.setScale(
             0.93
@@ -910,18 +928,28 @@ export default class MobileControl {
             1
         );
 
-        this.scene.tweens.add({
+        const scaleTween =
+            this.scene.tweens.add({
 
-            targets: button,
+                targets: button,
 
-            scaleX: 0.88,
+                scaleX: 0.88,
 
-            scaleY: 0.88,
+                scaleY: 0.88,
 
-            duration: 60,
+                duration: 60,
 
-            ease: "Quad.easeOut"
-        });
+                ease: "Quad.easeOut"
+            });
+
+        if (isLeft) {
+
+            this.leftScaleTween = scaleTween;
+
+        } else {
+
+            this.rightScaleTween = scaleTween;
+        }
 
         if (
             typeof navigator !== "undefined" &&
@@ -942,22 +970,37 @@ export default class MobileControl {
         core: Phaser.GameObjects.Graphics
     ): void {
 
-        this.scene.tweens.killTweensOf(
-            button
-        );
+        const isLeft =
+            button === this.leftButton;
 
-        this.scene.tweens.add({
+        (
+            isLeft
+                ? this.leftScaleTween
+                : this.rightScaleTween
+        )?.stop();
 
-            targets: button,
+        const scaleTween =
+            this.scene.tweens.add({
 
-            scaleX: 1,
+                targets: button,
 
-            scaleY: 1,
+                scaleX: 1,
 
-            duration: 150,
+                scaleY: 1,
 
-            ease: "Back.easeOut"
-        });
+                duration: 150,
+
+                ease: "Back.easeOut"
+            });
+
+        if (isLeft) {
+
+            this.leftScaleTween = scaleTween;
+
+        } else {
+
+            this.rightScaleTween = scaleTween;
+        }
     }
 
     // ========================================================
@@ -966,9 +1009,11 @@ export default class MobileControl {
 
     private pressNitroButton(): void {
 
-        this.scene.tweens.killTweensOf(
-            this.nitroButton
-        );
+        // Stop only the nitro button's own scale tween - NOT
+        // killTweensOf(this.nitroButton), which would also
+        // cancel the tutorial fade-out tween running on this
+        // same container and leave the button stuck half-visible.
+        this.nitroScaleTween?.stop();
 
         this.nitroButton.setScale(
             0.92
@@ -990,19 +1035,20 @@ export default class MobileControl {
             "#fff1d2"
         );
 
-        this.scene.tweens.add({
+        this.nitroScaleTween =
+            this.scene.tweens.add({
 
-            targets:
-                this.nitroButton,
+                targets:
+                    this.nitroButton,
 
-            scaleX: 0.86,
+                scaleX: 0.86,
 
-            scaleY: 0.86,
+                scaleY: 0.86,
 
-            duration: 55,
+                duration: 55,
 
-            ease: "Quad.easeOut"
-        });
+                ease: "Quad.easeOut"
+            });
 
         this.scene.tweens.add({
 
@@ -1035,23 +1081,22 @@ export default class MobileControl {
 
     private releaseNitroButton(): void {
 
-        this.scene.tweens.killTweensOf(
-            this.nitroButton
-        );
+        this.nitroScaleTween?.stop();
 
-        this.scene.tweens.add({
+        this.nitroScaleTween =
+            this.scene.tweens.add({
 
-            targets:
-                this.nitroButton,
+                targets:
+                    this.nitroButton,
 
-            scaleX: 1,
+                scaleX: 1,
 
-            scaleY: 1,
+                scaleY: 1,
 
-            duration: 170,
+                duration: 170,
 
-            ease: "Back.easeOut"
-        });
+                ease: "Back.easeOut"
+            });
     }
 
     // ========================================================

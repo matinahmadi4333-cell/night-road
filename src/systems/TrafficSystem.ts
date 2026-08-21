@@ -1673,14 +1673,35 @@ export default class TrafficSystem {
         const candidates = [preferredLane, preferredLane - 1, preferredLane + 1, preferredLane - 2, preferredLane + 2]
             .filter((lane, i, arr) => lane >= 0 && lane < this.LANES.length && arr.indexOf(lane) === i);
 
-        for (const lane of candidates) {
-            const y = player ? player.y + 500 : this.SPAWN_Y;
-            if (this.isLaneSafeForSpawn(lane, y, type)) {
-                console.log("[ENEMY DEBUG] hunter spawn lane found:", lane, "candidates were:", candidates);
-                return lane;
-            }
+        const y = player ? player.y + 500 : this.SPAWN_Y;
+
+        const safeCandidates = candidates.filter(
+            lane => this.isLaneSafeForSpawn(lane, y, type)
+        );
+
+        if (!safeCandidates.length) {
+            console.log("[ENEMY DEBUG] blocked: no safe lane near player for hunter. candidates tried:", candidates, "playerX=", playerX);
+            return null;
         }
-        console.log("[ENEMY DEBUG] blocked: no safe lane near player for hunter. candidates tried:", candidates, "playerX=", playerX);
+
+        // ESCAPE LANE GUARANTEE: a hunter must never be allowed to take the
+        // player's single remaining free lane and box them in with no way
+        // out. Filter through the same protection used by normal traffic
+        // spawning / lane changes, but keep the original preference order
+        // (closest to the player's lane first).
+        const protectedCandidates =
+            this.protectLastEscapeLane(safeCandidates);
+
+        const chosen = candidates.find(
+            lane => protectedCandidates.includes(lane)
+        );
+
+        if (chosen !== undefined) {
+            console.log("[ENEMY DEBUG] hunter spawn lane found:", chosen, "candidates were:", candidates);
+            return chosen;
+        }
+
+        console.log("[ENEMY DEBUG] blocked: only the player's last escape lane was available for hunter, refusing to spawn. candidates tried:", candidates, "playerX=", playerX);
         return null;
     }
 
@@ -1909,10 +1930,43 @@ export default class TrafficSystem {
     // =========================================================================
     // ESCAPE LANE GUARANTEE
     // =========================================================================
-    // Always keep at least one lane free in the zone around the player so
-    // the player never gets boxed in on all sides with nowhere to go.
+    // Keep at least one lane free among the lanes the player can actually
+    // reach — their current lane plus its immediate left/right neighbors —
+    // so the player never gets boxed in with nowhere to go. A free lane on
+    // the far side of a 4-lane road is worthless if the player is boxed in
+    // locally and can't get there in one move, so the guarantee is scoped
+    // to what's reachable, not to the whole road. Any active car that is
+    // still approaching the player (i.e. has not passed the player yet)
+    // "reserves" its lane — not just cars that are already close by. This
+    // prevents several far-away spawns/lane-changes from silently lining
+    // up and only becoming a problem once they all arrive at the player's
+    // position together.
 
-    private readonly ESCAPE_WINDOW = 700;
+    private readonly PASS_BUFFER = 40;
+
+    private getReachableLanesNearPlayer(): number[] {
+
+        const playerLane =
+            this.getPlayerLaneIndex();
+
+        if (playerLane === null) {
+
+            return Array.from(
+                { length: this.LANES.length },
+                (_, lane) => lane
+            );
+        }
+
+        return [
+            playerLane - 1,
+            playerLane,
+            playerLane + 1
+        ].filter(
+            lane =>
+                lane >= 0 &&
+                lane < this.LANES.length
+        );
+    }
 
     private getFreeLanesNearPlayer(): number[] {
 
@@ -1925,9 +1979,8 @@ export default class TrafficSystem {
         const free: number[] = [];
 
         for (
-            let lane = 0;
-            lane < this.LANES.length;
-            lane++
+            const lane of
+            this.getReachableLanesNearPlayer()
         ) {
 
             const occupied =
@@ -1947,9 +2000,14 @@ export default class TrafficSystem {
                         return false;
                     }
 
+                    // Reserve the lane for as long as this car is still
+                    // ahead of / beside the player (i.e. hasn't passed
+                    // and driven away from it yet), no matter how far
+                    // ahead it currently is.
                     return (
-                        Math.abs(car.sprite.y - playerY) <
-                        this.ESCAPE_WINDOW
+                        car.sprite.y <
+                        playerY +
+                        this.PASS_BUFFER
                     );
                 });
 
