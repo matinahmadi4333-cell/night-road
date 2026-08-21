@@ -35,7 +35,7 @@ android {
 
         release {
 
-            storeFile file("night-road-release.jks")
+            storeFile file("../night-road-release.jks")
 
             storePassword System.getenv("KEYSTORE_PASSWORD")
 
