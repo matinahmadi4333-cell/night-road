@@ -1,4 +1,4 @@
-name: Build NIGHT ROAD APK
+name: Build NIGHT ROAD Release APK
 
 on:
   push:
@@ -10,28 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
+
       - name: Install dependencies
         run: npm install
+
 
       - name: Build web
         run: npm run build
 
-      - name: Sync Capacitor
-        run: npx cap sync android
+
+      - name: Setup Capacitor
+        run: |
+          npx cap sync android
+
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+
 
       - name: Gradle Cache
         uses: actions/cache@v4
@@ -43,14 +51,16 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Build APK
+
+      - name: Build Release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
-      - name: Upload APK
+
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: NIGHT-ROAD-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: NIGHT-ROAD-RELEASE-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
