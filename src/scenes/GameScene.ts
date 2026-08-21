@@ -104,7 +104,7 @@ export default class GameScene extends Phaser.Scene {
     // PLAYER
     // =========================================================================
 
-    health = 3;
+    health = 4;
 
     hitCooldown = false;
 
@@ -500,7 +500,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.gameOver = false;
 
-        this.health = 3;
+        this.health = 4;
 
         this.distance = 0;
 
@@ -5562,7 +5562,7 @@ export default class GameScene extends Phaser.Scene {
                     this.distance /
                     1000
                 ) *
-                6,
+                1,
                 this.selectedCarStats.speed,
                 500
             );
@@ -5585,8 +5585,8 @@ export default class GameScene extends Phaser.Scene {
 
         const acceleration =
             this.nitroActive
-                ? 0.65
-                : 0.32;
+                ? 0.1
+                : 0.03;
 
 
         if (

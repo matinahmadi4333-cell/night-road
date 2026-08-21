@@ -1906,6 +1906,92 @@ export default class TrafficSystem {
     }
 
 
+    // =========================================================================
+    // ESCAPE LANE GUARANTEE
+    // =========================================================================
+    // Always keep at least one lane free in the zone around the player so
+    // the player never gets boxed in on all sides with nowhere to go.
+
+    private readonly ESCAPE_WINDOW = 700;
+
+    private getFreeLanesNearPlayer(): number[] {
+
+        const player =
+            this.getPlayer();
+
+        const playerY =
+            player ? player.y : this.DESPAWN_Y - 200;
+
+        const free: number[] = [];
+
+        for (
+            let lane = 0;
+            lane < this.LANES.length;
+            lane++
+        ) {
+
+            const occupied =
+                this.cars.some(car => {
+
+                    if (
+                        !car.sprite ||
+                        !car.sprite.active
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        car.lane !== lane &&
+                        car.targetLane !== lane
+                    ) {
+                        return false;
+                    }
+
+                    return (
+                        Math.abs(car.sprite.y - playerY) <
+                        this.ESCAPE_WINDOW
+                    );
+                });
+
+            if (!occupied) {
+                free.push(lane);
+            }
+        }
+
+        return free;
+    }
+
+    // Removes the single remaining free lane from a list of candidate
+    // lanes, unless doing so would leave no candidates at all (in which
+    // case we have no choice but to allow it).
+    private protectLastEscapeLane(
+        candidateLanes: number[]
+    ): number[] {
+
+        const freeLanes =
+            this.getFreeLanesNearPlayer();
+
+        if (
+            freeLanes.length !== 1
+        ) {
+
+            return candidateLanes;
+        }
+
+        const protectedLane =
+            freeLanes[0];
+
+        const filtered =
+            candidateLanes.filter(
+                lane => lane !== protectedLane
+            );
+
+        return filtered.length
+            ? filtered
+            : candidateLanes;
+    }
+
+
     private pickSpawnLane(
         type: VehicleType
     ): number | null {
@@ -1951,13 +2037,19 @@ export default class TrafficSystem {
         }
 
 
+        const protectedSafe =
+            this.protectLastEscapeLane(
+                safe
+            );
+
+
         let minimum =
             Infinity;
 
 
         for (
             const lane of
-            safe
+            protectedSafe
         ) {
 
             minimum =
@@ -1971,7 +2063,7 @@ export default class TrafficSystem {
 
 
         const emptiest =
-            safe.filter(
+            protectedSafe.filter(
                 lane =>
                     this.carsInLane(
                         lane
@@ -2893,12 +2985,18 @@ export default class TrafficSystem {
         }
 
 
+        const protectedSafe =
+            this.protectLastEscapeLane(
+                safe
+            );
+
+
         if (
             typeof biasLane ===
             "number"
         ) {
 
-            safe.sort(
+            protectedSafe.sort(
 
                 (a, b) =>
 
@@ -2916,7 +3014,7 @@ export default class TrafficSystem {
         }
         else {
 
-            safe.sort(
+            protectedSafe.sort(
 
                 (a, b) =>
                     this.carsInLane(a)
@@ -2929,7 +3027,7 @@ export default class TrafficSystem {
 
 
         const targetLane =
-            safe[0];
+            protectedSafe[0];
 
 
         const oldLane =
@@ -4102,27 +4200,21 @@ export default class TrafficSystem {
             );
 
 
-        const levelFactor =
-            Phaser.Math.Clamp(
+        // Difficulty now grows in clear level-based steps (every 4 levels)
+        // instead of a smooth per-level curve, and ramps up much more slowly.
+        const levelStep =
+            Math.floor(
                 Math.max(
                     0,
                     level - 1
-                ) *
-                0.035,
-
-                0,
-
-                1
+                ) /
+                4
             );
 
-
-        const distanceFactor =
+        const levelFactor =
             Phaser.Math.Clamp(
-                Math.max(
-                    0,
-                    distance
-                ) /
-                12000,
+                levelStep *
+                0.01,
 
                 0,
 
@@ -4132,11 +4224,9 @@ export default class TrafficSystem {
 
         return Phaser.Math.Clamp(
 
-            0.35 +
+            0.25 +
             levelFactor *
-            0.40 +
-            distanceFactor *
-            0.15 +
+            0.55 +
             profile.enemyAggression *
             0.10,
 

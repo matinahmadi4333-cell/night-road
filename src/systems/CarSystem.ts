@@ -38,7 +38,7 @@ export default class CarSystem {
             id: "starter",
             name: "Street",
 
-            speed: 60,
+            speed: 110,
             nitro: 50,
             handling: 70,
 
@@ -50,7 +50,7 @@ export default class CarSystem {
             height: 72,
 
             maxUpgrade: 5,
-            upgradeStep: 4
+            upgradeStep: 55 / 4,
         },
 
         // =========================================
@@ -61,7 +61,7 @@ export default class CarSystem {
             id: "taxi",
             name: "Night Taxi",
 
-            speed: 75,
+            speed: 125,
             nitro: 60,
             handling: 80,
 
@@ -73,7 +73,7 @@ export default class CarSystem {
             height: 75,
 
             maxUpgrade: 5,
-            upgradeStep: 5
+            upgradeStep: 50 / 4,
         },
 
         // =========================================
@@ -84,7 +84,7 @@ export default class CarSystem {
             id: "sport",
             name: "Shadow Sport",
 
-            speed: 110,
+            speed: 150,
             nitro: 90,
             handling: 85,
 
@@ -96,7 +96,7 @@ export default class CarSystem {
             height: 78,
 
             maxUpgrade: 6,
-            upgradeStep: 6
+            upgradeStep: 12,
         },
 
         // =========================================
@@ -107,7 +107,7 @@ export default class CarSystem {
             id: "super",
             name: "Night Beast",
 
-            speed: 150,
+            speed: 170,
             nitro: 120,
             handling: 95,
 
@@ -119,7 +119,7 @@ export default class CarSystem {
             height: 82,
 
             maxUpgrade: 7,
-            upgradeStep: 8
+            upgradeStep: 70 / 6,
         },
 
         // =========================================
@@ -130,7 +130,7 @@ export default class CarSystem {
             id: "truck",
             name: "Heavy Truck",
 
-            speed: 55,
+            speed: 105,
             nitro: 40,
             handling: 45,
 
@@ -142,7 +142,7 @@ export default class CarSystem {
             height: 105,
 
             maxUpgrade: 5,
-            upgradeStep: 5
+            upgradeStep: 55 / 4,
         },
 
         // =========================================
@@ -153,7 +153,7 @@ export default class CarSystem {
             id: "bus",
             name: "Night Bus",
 
-            speed: 45,
+            speed: 95,
             nitro: 30,
             handling: 35,
 
@@ -165,7 +165,7 @@ export default class CarSystem {
             height: 115,
 
             maxUpgrade: 5,
-            upgradeStep: 4
+            upgradeStep: 45 / 4,
         }
     ];
 
@@ -230,13 +230,13 @@ export default class CarSystem {
         return {
 
             speed:
-                car.speed + bonus,
+                Math.round(car.speed + bonus),
 
             nitro:
-                car.nitro + bonus,
+                Math.round(car.nitro + bonus),
 
             handling:
-                car.handling + bonus,
+                Math.round(car.handling + bonus),
 
             width:
                 car.width,
