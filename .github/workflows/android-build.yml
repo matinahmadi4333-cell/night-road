@@ -29,9 +29,8 @@ jobs:
         run: npm run build
 
 
-      - name: Setup Capacitor
-        run: |
-          npx cap sync android
+      - name: Sync Capacitor
+        run: npx cap sync android
 
 
       - name: Setup Java
@@ -41,15 +40,17 @@ jobs:
           java-version: 21
 
 
-      - name: Gradle Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/night-road-release.jks
+
+
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=night-road-release.jks" >> android/key.properties
 
 
       - name: Build Release APK
@@ -62,5 +63,5 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: NIGHT-ROAD-RELEASE-APK
+          name: NIGHT-ROAD-FINAL-APK
           path: android/app/build/outputs/apk/release/app-release.apk
