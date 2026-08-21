@@ -123,7 +123,7 @@ export default class GameScene extends Phaser.Scene {
     hitCooldown = false;
 
     gameOver = false;
-    private readonly DEBUG_INVINCIBLE = true;
+    private readonly DEBUG_INVINCIBLE = false;
 
     // =========================================================================
     // ZONE / LEVEL

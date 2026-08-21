@@ -5,7 +5,7 @@ static saveData:any = {
 
 
 
-crystals:100000,
+crystals:0,
 
 
 bestScore:0,
@@ -593,7 +593,7 @@ this.saveData={
 
 
 
-crystals:100000,
+crystals:0,
 
 
 bestScore:0,
