@@ -758,7 +758,7 @@ export default class PauseScene extends Phaser.Scene {
             this.restartButton,
             () => {
 
-                AudioSystem.stopGameMusic();
+                this.killAllAudio();
 
                 this.scene.stop(
                     "GameScene"
@@ -776,7 +776,7 @@ export default class PauseScene extends Phaser.Scene {
             this.menuButton,
             () => {
 
-                AudioSystem.stopGameMusic();
+                this.killAllAudio();
 
                 this.scene.stop(
                     "GameScene"
@@ -787,6 +787,34 @@ export default class PauseScene extends Phaser.Scene {
                 );
             }
         );
+    }
+
+    // =========================================================
+    // KILL ALL AUDIO
+    // =========================================================
+    // Master safety switch: stops EVERY sound currently playing
+    // (music, sfx, zone-intro narration) immediately, regardless
+    // of whether GameScene's own shutdown() has run yet.
+    // Also cancels any queued/playing Web Speech narration used
+    // as a fallback for the zone voice lines.
+    // =========================================================
+
+    private killAllAudio(): void {
+
+        AudioSystem.stopGameMusic();
+
+        this.sound.stopAll();
+
+        if ("speechSynthesis" in window) {
+
+            try {
+
+                window.speechSynthesis.cancel();
+
+            } catch { }
+
+        }
+
     }
 
     // =========================================================

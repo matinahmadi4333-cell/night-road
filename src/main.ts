@@ -12,7 +12,7 @@ import SettingsScene from "./scenes/SettingsScene";
 
 const config: Phaser.Types.Core.GameConfig = {
 
-    type: Phaser.AUTO,
+    type: Phaser.WEBGL,
 
     // Base game size
     width: 400,
@@ -23,6 +23,26 @@ const config: Phaser.Types.Core.GameConfig = {
     parent: "app",
 
     pixelArt: false,
+
+    // Render performance tuning.
+    antialias: true,
+
+    roundPixels: true,
+
+    render: {
+        powerPreference: "high-performance"
+    },
+
+    // Don't let the canvas render at more physical pixels than it
+    // needs to — this is usually the single biggest mobile FPS win.
+    // (Removed the `resolution` key: your installed Phaser version's
+    // type defs don't expose it on GameConfig — see note below.)
+
+    fps: {
+        target: 60,
+        min: 30,
+        smoothStep: true
+    },
 
     scale: {
         mode: Phaser.Scale.ENVELOP,

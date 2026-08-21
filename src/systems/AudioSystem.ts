@@ -123,6 +123,38 @@ static carBuy(){
 
     }
     // ==========================
+    // SAFETY NET — kills ANY sound
+    // instance with this key, even
+    // ones this class lost track of
+    // (e.g. after a scene restart /
+    // HMR reload left an orphaned
+    // Sound object behind).
+    // ==========================
+
+    static stopAllByKey(key:string){
+
+        const manager:any = this.scene?.sound;
+
+        if(!manager || !manager.sounds)
+            return;
+
+        // iterate backwards: stop()/destroy() mutate the array
+        for(let i = manager.sounds.length - 1; i >= 0; i--){
+
+            const s = manager.sounds[i];
+
+            if(s && s.key === key){
+
+                s.stop();
+                s.destroy();
+
+            }
+
+        }
+
+    }
+
+    // ==========================
     // MENU MUSIC
     // ==========================
 
@@ -131,13 +163,8 @@ static carBuy(){
         if(!this.musicEnabled)
             return;
 
-        if(this.gameMusic){
-
-            this.gameMusic.stop();
-            this.gameMusic.destroy();
-            this.gameMusic = undefined;
-
-        }
+        this.stopGameMusic();
+        this.stopAllByKey("game_theme");
 
         if(this.menuMusic){
 
@@ -146,6 +173,9 @@ static carBuy(){
             return;
 
         }
+
+        // clear any orphaned menu_theme instance before making a new one
+        this.stopAllByKey("menu_theme");
 
         this.menuMusic = this.scene.sound.add(
             "menu_theme",
@@ -170,6 +200,8 @@ static carBuy(){
 
         }
 
+        this.stopAllByKey("menu_theme");
+
     }
 
     // ==========================
@@ -181,13 +213,7 @@ static carBuy(){
         if(!this.musicEnabled)
             return;
 
-        if(this.menuMusic){
-
-            this.menuMusic.stop();
-            this.menuMusic.destroy();
-            this.menuMusic = undefined;
-
-        }
+        this.stopMenuMusic();
 
         if(this.gameMusic){
 
@@ -196,6 +222,9 @@ static carBuy(){
             return;
 
         }
+
+        // clear any orphaned game_theme instance before making a new one
+        this.stopAllByKey("game_theme");
 
         this.gameMusic = this.scene.sound.add(
             "game_theme",
@@ -211,6 +240,8 @@ static carBuy(){
     }
 
     static stopGameMusic(){
+
+        this.stopAllByKey("game_theme");
 
         if(this.gameMusic){
 

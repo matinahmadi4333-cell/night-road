@@ -3465,14 +3465,12 @@ export default class GameScene extends Phaser.Scene {
 
         if (
             this.nitroFXTimer >
-            34
+            60
         ) {
 
             this.nitroFXTimer =
                 0;
 
-
-            this.createNitroTrail();
 
             this.createNitroTrail();
 
@@ -3482,7 +3480,7 @@ export default class GameScene extends Phaser.Scene {
                     1,
                     100
                 ) <=
-                72
+                50
             ) {
 
                 this.createNitroSpark();
@@ -5564,7 +5562,7 @@ export default class GameScene extends Phaser.Scene {
                     this.distance /
                     1000
                 ) *
-                3,
+                6,
                 this.selectedCarStats.speed,
                 500
             );
@@ -5588,7 +5586,7 @@ export default class GameScene extends Phaser.Scene {
         const acceleration =
             this.nitroActive
                 ? 0.65
-                : 0.16;
+                : 0.32;
 
 
         if (

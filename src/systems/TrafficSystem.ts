@@ -737,9 +737,9 @@ const ZONE_PROFILES: ZoneProfile[] = [
 
         maxCars: 6,
 
-        spawnMin: 850,
+        spawnMin: 200,
 
-        spawnMax: 1250,
+        spawnMax: 350,
 
         speedMultiplier: 0.94,
 
@@ -4246,7 +4246,7 @@ export default class TrafficSystem {
             difficultyMultiplier /
             density,
 
-            300,
+            150,
 
             1800
         );

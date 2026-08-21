@@ -2207,7 +2207,7 @@ export default class MenuScene extends Phaser.Scene {
         for (
             let y = 0;
             y < H;
-            y += 7
+            y += 14
         ) {
 
             const line = this.add.rectangle(
