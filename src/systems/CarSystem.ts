@@ -6,6 +6,10 @@ export type CarData = {
     nitro: number;
     handling: number;
 
+    // Hard nitro speed ceiling for this car (displaySpeed can never exceed
+    // this while nitro is active). Fixed per car — not affected by upgrades.
+    nitroMaxSpeed: number;
+
     price: number;
 
     texture: string;
@@ -21,6 +25,7 @@ export type CalculatedStats = {
     speed: number;
     nitro: number;
     handling: number;
+    nitroMaxSpeed: number;
     width: number;
     height: number;
     crystalMultiplier: number;
@@ -41,6 +46,8 @@ export default class CarSystem {
             speed: 110,
             nitro: 50,
             handling: 70,
+
+            nitroMaxSpeed: 600,
 
             price: 0,
 
@@ -65,6 +72,8 @@ export default class CarSystem {
             nitro: 60,
             handling: 80,
 
+            nitroMaxSpeed: 600,
+
             price: 500,
 
             texture: "taxi",
@@ -87,6 +96,8 @@ export default class CarSystem {
             speed: 150,
             nitro: 90,
             handling: 85,
+
+            nitroMaxSpeed: 680,
 
             price: 1500,
 
@@ -111,6 +122,9 @@ export default class CarSystem {
             nitro: 120,
             handling: 95,
 
+            // Most expensive car — highest nitro speed ceiling in the game.
+            nitroMaxSpeed: 750,
+
             price: 4000,
 
             texture: "super",
@@ -134,6 +148,8 @@ export default class CarSystem {
             nitro: 40,
             handling: 45,
 
+            nitroMaxSpeed: 520,
+
             price: 2500,
 
             texture: "truck",
@@ -156,6 +172,8 @@ export default class CarSystem {
             speed: 95,
             nitro: 30,
             handling: 35,
+
+            nitroMaxSpeed: 520,
 
             price: 2000,
 
@@ -237,6 +255,10 @@ export default class CarSystem {
 
             handling:
                 Math.round(car.handling + bonus),
+
+            // Fixed per car — upgrades don't raise the nitro speed ceiling.
+            nitroMaxSpeed:
+                car.nitroMaxSpeed,
 
             width:
                 car.width,

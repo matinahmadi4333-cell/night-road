@@ -87,7 +87,7 @@ export default class BootScene extends Phaser.Scene {
         // --------------------------------------------------------
         // CORE VEHICLES
         // --------------------------------------------------------
-
+        this.load.audio("car_buy", "/assets/audio/car_buy.wav");
         this.load.image(
             "sport1",
             "assets/cars/sport1.webp"

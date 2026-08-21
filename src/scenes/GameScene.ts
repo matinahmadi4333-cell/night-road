@@ -11,6 +11,26 @@ import LevelSystem from "../systems/LevelSystem";
 import WorldManager from "../systems/WorldManager";
 import ScoreSystem from "../systems/ScoreSystem";
 import GameHUD from "../ui/GameHUD";
+// =====================================================================================
+// NOVA OVERDRIVE — FINAL GAME SCENE
+// =====================================================================================
+//
+// HUD:
+// • GameHUD is the ONLY gameplay HUD controller.
+// • Old duplicate Speed / Nitro / Crystal HUD is removed.
+// • Nitro button remains controlled by GameScene because it is gameplay input.
+// • Crystal / magnet gameplay remains inside CrystalSystem.
+// • Score remains inside ScoreSystem.
+// • Nitro FX upgraded.
+// • Crystal pickup FX upgraded.
+// • Magnet pickup FX upgraded.
+// • Clean top area.
+// • Zone background images now cycle per-zone (3 images each) with fallback
+//   to the original road1/road2 textures if a zone's images aren't loaded.
+// • Zone 5 completion now triggers a real cinematic ending instead of
+//   looping back to Zone 1.
+// =====================================================================================
+
 
 export default class GameScene extends Phaser.Scene {
 
@@ -64,16 +84,30 @@ export default class GameScene extends Phaser.Scene {
 
 
     // =========================================================================
-    // NITRO - ⚡ تغییرات اینجا اعمال شدن ⚡
+    // NITRO
     // =========================================================================
 
     nitroActive = false;
 
     nitroTimer = 0;
 
-    nitroDuration = 5000; // ✅ از 4000 به 5000 افزایش
+    nitroDuration = 4000;
 
     nitroCooldown = false;
+
+    // Real (non-cosmetic) nitro speed ceiling. Nitro is allowed to push
+    // displaySpeed above the normal 450 cap, all the way up to this value.
+    // Each car now defines its own ceiling (CarData.nitroMaxSpeed) — this
+    // constant is only a fallback for the rare case selectedCarStats hasn't
+    // loaded yet. The highest possible ceiling in the game is 750, on the
+    // most expensive car.
+    private readonly NITRO_MAX_SPEED_FALLBACK = 750;
+
+    // Current car's actual nitro speed ceiling, resolved every frame from
+    // selectedCarStats so each car can have a different cap.
+    private get NITRO_MAX_SPEED(): number {
+        return this.selectedCarStats?.nitroMaxSpeed ?? this.NITRO_MAX_SPEED_FALLBACK;
+    }
 
     private nitroFXTimer = 0;
 
@@ -89,7 +123,7 @@ export default class GameScene extends Phaser.Scene {
     hitCooldown = false;
 
     gameOver = false;
-    private readonly DEBUG_INVINCIBLE = false;
+    private readonly DEBUG_INVINCIBLE = true;
 
     // =========================================================================
     // ZONE / LEVEL
@@ -103,6 +137,21 @@ export default class GameScene extends Phaser.Scene {
 
     private readonly LEVEL_DURATION = 18000;
 
+    // Level now advances by distance traveled *inside the current zone*,
+    // not by real time. Each zone requires more distance per level than
+    // the last, so Zone 1 levels up easily and later zones get harder.
+    // Index 0 = Zone 1, index 4 = Zone 5. Tune these to taste.
+    private readonly ZONE_DISTANCE_PER_LEVEL: readonly number[] = [
+        7000,
+        14000,
+        25000,
+        40000,
+        50000
+    ];
+
+    // Fallback used only if a zone index somehow falls outside the array.
+    private readonly DISTANCE_PER_LEVEL = 2200;
+
     private currentZone = 1;
 
     private currentLevel = 1;
@@ -110,6 +159,10 @@ export default class GameScene extends Phaser.Scene {
     private zoneElapsed = 0;
 
     private levelElapsed = 0;
+
+    // Snapshot of this.distance taken whenever a zone (re)starts, so level
+    // progress can be measured as "distance traveled since this zone began".
+    private zoneStartDistance = 0;
 
     private zoneTransitioning = false;
 
@@ -120,6 +173,11 @@ export default class GameScene extends Phaser.Scene {
     // ZONE BACKGROUND IMAGES
     // =========================================================================
 
+    // -------------------------------------------------------------------------
+    // ZONE ROAD ART
+    // -------------------------------------------------------------------------
+    // Exactly ONE road image belongs to each Zone.
+    // The same image is repeated continuously until the Zone ends.
     private readonly ZONE_IMAGES: readonly string[] = [
         "zone1_road",
         "zone2_road",
@@ -128,7 +186,12 @@ export default class GameScene extends Phaser.Scene {
         "zone5_road"
     ];
 
+    // -------------------------------------------------------------------------
+    // ROAD LOOP / MICRO-SEAM
+    // -------------------------------------------------------------------------
+    // No random image shuffle: each Zone owns one visual identity.
     private readonly ROAD_HEIGHT = 800;
+    // Roads are designed to tile edge-to-edge. No seam or spacer is used.
     private readonly ROAD_GAP = 0;
     private readonly ROAD_SPACING =
         this.ROAD_HEIGHT;
@@ -176,6 +239,8 @@ export default class GameScene extends Phaser.Scene {
 
     private narrationFinished = false;
 
+    // The supplied MP3 files are the master clock.
+    // Subtitle line changes are aligned to the real speech boundaries in each MP3.
     private narrationTimeScale = 1;
 
 
@@ -244,17 +309,23 @@ export default class GameScene extends Phaser.Scene {
             voice: "I'm here at the core. I thought I would have more to say. I imagined this moment so many times. I thought I'd be angry. I thought I'd want answers. But I'm just tired, really tired. Everything I lost, everything I did, it all led me here. They spent years controlling every road, every choice, every person. But they missed one thing. I still get to decide. This ends here."
         }
     ];
-
-    private readonly ZONE_UNMAPPED_AUDIO: Record<number, Array<{ start: number; end: number }>> = {
-        2: [
-            { start:14.11, end:14.59 },
-            { start:15.10, end:15.91 },
-            { start:17.00, end:18.03 }
-        ]
-    };
+    // The supplied audio files are the master clock for subtitles.
+    // No more unmapped-audio gaps: every zone's timing below is now derived
+    // directly from the segment boundaries in the supplied
+    // zone_voice_N-speedscribe.json whisper transcripts, so the previously
+    // "blank" stretches of audio are accounted for by real segment text.
+    private readonly ZONE_UNMAPPED_AUDIO: Record<number, Array<{ start: number; end: number }>> = {};
 
     private readonly ZONE_NARRATION_LINES: Record<number, Array<{ start: number; end: number; text: string }>> = {
+        // Timestamps are synced to the whisper segment boundaries in the
+        // supplied zone_voice_N-speedscribe.json files (offsets/1000 = seconds).
+        // Where a json segment spans several sentences, the sentence-level
+        // sub-splits below are interpolated by character length inside that
+        // segment's [from, to] window, so line changes always land inside the
+        // real spoken segment they belong to.
         1: [
+            // zone_voice_1 has a single whisper segment covering 0.00-29.00s
+            // for the whole monologue; these sub-splits fit inside that window.
             { start:0.13, end:1.41, text:"Okay." },
             { start:2.47, end:3.31, text:"It's working." },
             { start:4.66, end:5.67, text:"I," },
@@ -270,58 +341,76 @@ export default class GameScene extends Phaser.Scene {
             { start:26.67, end:27.45, text:"driving." }
         ],
         2: [
-            { start:0.98, end:1.87, text:"The city is gone." },
-            { start:2.04, end:3.23, text:"I can't see the lights anymore." },
-            { start:3.97, end:5.42, text:"For a second, I thought I lost them." },
-            { start:6.80, end:7.50, text:"That was stupid." },
-            { start:8.31, end:9.39, text:"I know how they work." },
-            { start:9.72, end:11.01, text:"I helped build this system." },
-            { start:11.15, end:12.03, text:"They don't stop," },
-            { start:12.41, end:13.86, text:"so I can't stop." }
+            // segment 0.00-7.04: "The city is gone, I can't see the lights anymore."
+            { start:0.00, end:2.40, text:"The city is gone." },
+            { start:2.70, end:7.04, text:"I can't see the lights anymore." },
+            // segment 7.04-13.20: "For a second, I thought I lost them, that was
+            // stupid, I know how they work, I help build"
+            { start:7.20, end:9.20, text:"For a second, I thought I lost them." },
+            { start:9.40, end:10.40, text:"That was stupid." },
+            { start:10.60, end:11.90, text:"I know how they work." },
+            // segment 13.20-18.02: "this system, they don't stop, so I can't stop."
+            { start:12.10, end:14.00, text:"I helped build this system." },
+            { start:14.20, end:18.02, text:"They don't stop, so I can't stop." }
         ],
         3: [
-            { start:0.18, end:2.71, text:"Something changed." },
-            { start:3.34, end:4.84, text:"I can feel it." },
-            { start:5.10, end:5.84, text:"They're not following anymore." },
-            { start:6.32, end:7.12, text:"They're predicting every turn," },
-            { start:7.93, end:8.80, text:"every choice." },
-            { start:9.47, end:10.39, text:"They already know." },
-            { start:11.43, end:12.72, text:"I helped create this," },
-            { start:13.41, end:14.01, text:"and now it's coming" },
-            { start:14.81, end:15.88, text:"for me." }
+            // segment 0.00-9.00: "Something changed, I can feel it, they're not
+            // following anymore, they're predicting every turn, every choice."
+            { start:0.00, end:1.39, text:"Something changed." },
+            { start:1.69, end:2.78, text:"I can feel it." },
+            { start:3.08, end:5.34, text:"They're not following anymore." },
+            { start:5.64, end:9.00, text:"They're predicting every turn, every choice." },
+            // segment 9.00-13.00: "They already know, I help create this."
+            { start:9.00, end:10.71, text:"They already know." },
+            { start:11.01, end:13.00, text:"I helped create this," },
+            // segment 13.00-16.00: "And now it's coming from me."
+            { start:13.00, end:16.00, text:"and now it's coming for me." }
         ],
         4: [
-            { start:0.10, end:1.89, text:"It's quiet." },
-            { start:2.52, end:3.16, text:"Too quiet." },
-            { start:3.73, end:5.73, text:"No signals, no warnings, nothing." },
-            { start:6.88, end:9.95, text:"I spent so much time trying to reach this place," },
-            { start:10.34, end:11.42, text:"a place they couldn't see," },
-            { start:11.84, end:13.21, text:"a place they couldn't control." },
-            { start:13.51, end:13.96, text:"I thought I would feel safe," },
-            { start:14.13, end:15.57, text:"but I don't know." },
-            { start:16.13, end:16.31, text:"Something" },
-            { start:17.09, end:17.68, text:"feels wrong." },
-            { start:18.50, end:19.65, text:"When everything disappears," },
-            { start:20.74, end:22.26, text:"you start noticing things you tried to forget." },
-            { start:23.43, end:25.71, text:"The road is still ahead." },
-            { start:27.23, end:29.31, text:"That's enough." },
-            { start:29.99, end:30.75, text:"Keep going." }
+            // segment 0.00-8.48: "it's quiet too quiet no signals no warnings
+            // nothing I spent so much time"
+            { start:0.00, end:1.10, text:"It's quiet." },
+            { start:1.35, end:2.35, text:"Too quiet." },
+            { start:2.60, end:6.00, text:"No signals, no warnings, nothing." },
+            // segment 8.48-12.48 continues: "trying to reach this place a place
+            // they couldn't see a place they couldn't"
+            { start:6.25, end:10.60, text:"I spent so much time trying to reach this place," },
+            { start:10.80, end:12.48, text:"a place they couldn't see," },
+            // segment 12.48-20.84: "control I thought I would feel safe but I
+            // don't know something feels wrong when"
+            { start:12.48, end:14.20, text:"a place they couldn't control." },
+            { start:14.40, end:16.20, text:"I thought I would feel safe," },
+            { start:16.40, end:17.60, text:"but I don't know." },
+            { start:17.80, end:20.84, text:"Something feels wrong." },
+            // segment 20.84-27.76: "everything disappears you start noticing
+            // things you tried to forget the road is"
+            { start:20.84, end:22.80, text:"When everything disappears," },
+            { start:23.00, end:26.50, text:"you start noticing things you tried to forget." },
+            // segment 27.76-30.02: "Still ahead, that's enough."
+            { start:26.70, end:28.80, text:"The road is still ahead." },
+            { start:29.00, end:30.02, text:"That's enough." },
+            // segment 30.02-30.86: "Keep going."
+            { start:30.02, end:30.86, text:"Keep going." }
         ],
         5: [
-            { start:0.17, end:1.77, text:"I'm here at the core." },
-            { start:2.02, end:3.49, text:"I thought I would have more to say." },
-            { start:4.04, end:8.23, text:"I imagined this moment so many times." },
-            { start:8.61, end:11.61, text:"I thought I'd be angry." },
-            { start:11.86, end:12.27, text:"I thought I'd want answers." },
-            { start:12.64, end:14.19, text:"But I'm just tired, really tired." },
-            { start:14.46, end:15.99, text:"Everything I lost," },
-            { start:16.43, end:17.70, text:"everything I did," },
-            { start:17.91, end:19.22, text:"it all led me here." },
-            { start:19.56, end:20.70, text:"They spent years controlling every road," },
-            { start:21.91, end:23.96, text:"every choice, every person." },
-            { start:24.20, end:26.04, text:"But they missed one thing." },
-            { start:27.30, end:28.56, text:"I still get to decide." },
-            { start:29.31, end:30.64, text:"This ends here." }
+            // zone_voice_5 has one whisper segment per sentence, used directly.
+            { start:0.00, end:3.96, text:"I'm here at the core." },
+            { start:3.96, end:5.78, text:"I thought I would have more to say." },
+            { start:5.78, end:8.56, text:"I imagined this moment so many times." },
+            { start:8.56, end:10.10, text:"I thought I'd be angry." },
+            { start:10.10, end:13.00, text:"I thought I'd want answers." },
+            { start:13.00, end:16.48, text:"But I'm just tired, really tired." },
+            // segment 16.48-21.84: "Everything I lost, everything I did, it all led me here."
+            { start:16.48, end:18.10, text:"Everything I lost," },
+            { start:18.35, end:19.88, text:"everything I did," },
+            { start:20.13, end:21.84, text:"it all led me here." },
+            // segment 21.84-27.20: "They spend years controlling every road, every choice, every person."
+            { start:21.84, end:24.91, text:"They spent years controlling every road," },
+            { start:25.16, end:27.20, text:"every choice, every person." },
+            { start:27.20, end:29.24, text:"But they missed one thing." },
+            // segment 29.24-33.34: "I still get to decide this ends here."
+            { start:29.24, end:31.51, text:"I still get to decide." },
+            { start:31.76, end:33.34, text:"This ends here." }
         ]
     };
 
@@ -431,11 +520,19 @@ export default class GameScene extends Phaser.Scene {
     // PLAYER VISUAL SIZE
     // =========================================================================
 
+    /**
+     * Visual dimensions are based on each car's own texture aspect ratio.
+     * Gameplay stats (speed/nitro/handling/etc.) remain independent.
+     * No fixed width/height pair is used, so selected cars are never stretched.
+     */
     private getPlayerVisualSize(
         textureKey: string,
         fallbackWidth: number,
         fallbackHeight: number
     ): { width: number; height: number } {
+        // Return the canonical bounding box. The actual sprite is fitted into
+        // this box with ONE uniform scale in create(), so the source texture is
+        // never stretched. Player and Traffic therefore use the same sizing rule.
         void fallbackWidth;
         void fallbackHeight;
 
@@ -446,6 +543,14 @@ export default class GameScene extends Phaser.Scene {
     // CREATE
     // =========================================================================
 
+
+    /**
+     * Zone road artwork lives in:
+     * public/assets/zones/
+     *
+     * Because these files are under Vite's public directory, they must be
+     * requested from the root URL as /assets/zones/<file>.
+     */
     preload(): void {
         const zoneAssets: ReadonlyArray<readonly [string, string]> = [
             ["zone1_road", "/assets/zones/zone1_road.webp"],
@@ -483,6 +588,8 @@ export default class GameScene extends Phaser.Scene {
         this.zoneElapsed = 0;
 
         this.levelElapsed = 0;
+
+        this.zoneStartDistance = 0;
 
         this.zoneTransitioning = false;
 
@@ -777,6 +884,9 @@ export default class GameScene extends Phaser.Scene {
             );
 
 
+        // Each selected car gets its own natural visual size.
+        // The source texture aspect ratio is preserved, so cars are never
+        // stretched horizontally or vertically.
         const playerTexture =
             selectedCar
                 ? selectedCar.texture
@@ -789,6 +899,11 @@ export default class GameScene extends Phaser.Scene {
                 this.selectedCarStats.height
             );
 
+        // Keep gameplay code and collision bounds synchronized with the
+        // actual rendered footprint of the selected vehicle.
+        // Fit the car INSIDE the canonical box with a uniform scale.
+        // setDisplaySize(width, height) would distort assets whose source
+        // aspect ratio differs (this was the main cause of the stretched cars).
         const frameWidth = Math.max(1, this.car.frame?.width ?? playerVisual.width);
         const frameHeight = Math.max(1, this.car.frame?.height ?? playerVisual.height);
         const fitScale = Math.min(
@@ -797,6 +912,7 @@ export default class GameScene extends Phaser.Scene {
         );
         this.car.setScale(fitScale);
 
+        // Store the REAL rendered footprint for road bounds/collision.
         this.selectedCarStats.width =
             this.car.displayWidth;
         this.selectedCarStats.height =
@@ -815,15 +931,24 @@ export default class GameScene extends Phaser.Scene {
 
         this.car.clearTint();
 
+        // Keep TrafficSystem collision/near-miss bounds exactly in sync with
+        // the rendered player car.
         this.traffic.setPlayerCollisionBounds(
             this.car.displayWidth,
             this.car.displayHeight
         );
 
+        // Give TrafficSystem the canonical player reference. This prevents its
+        // spawn-safety / near-miss logic from falling back to scene-name lookup.
         this.traffic.setPlayer(this.car);
 
+        // Let the player drag their finger directly on the car to steer it,
+        // in addition to the on-screen left/right buttons.
         this.mobile.setCarTarget(this.car);
 
+                // checkNearMiss is private on TrafficSystem and already runs every
+        // frame inside its own update() — listen for the event it emits
+        // instead of calling the (inaccessible) method directly.
         this.traffic.onEvent(
             event => {
 
@@ -966,6 +1091,7 @@ export default class GameScene extends Phaser.Scene {
             return key;
         }
 
+        // Safe fallback keeps the road alive if an asset was not loaded.
         if (this.textures.exists("road1")) {
             return "road1";
         }
@@ -974,12 +1100,17 @@ export default class GameScene extends Phaser.Scene {
             return "road2";
         }
 
+        // Final fallback only when the game's original road assets are missing.
         return key ?? "road1";
     }
 
     private fitRoadImage(
         image: Phaser.GameObjects.Image
     ): void {
+        // IMPORTANT: do not crop the road artwork. Cropping the side matte and
+        // then stretching the crop to 400px is what created the visible zoom.
+        // Keep the complete source image and fit it to the game's native road
+        // size without changing its aspect ratio.
         const targetW = this.scale.width || 400;
         const targetH = this.ROAD_HEIGHT;
 
@@ -994,6 +1125,7 @@ export default class GameScene extends Phaser.Scene {
     // =========================================================================
 
     private drawRoadGapFX() {
+        // Intentionally empty. Roads now touch edge-to-edge with no black seam.
         if (this.roadGapFX) {
             this.roadGapFX.clear();
             this.roadGapFX.setVisible(false);
@@ -1871,6 +2003,10 @@ export default class GameScene extends Phaser.Scene {
             0;
 
 
+        this.zoneStartDistance =
+            this.distance;
+
+
         this.zoneIntroActive =
             true;
 
@@ -2045,9 +2181,34 @@ export default class GameScene extends Phaser.Scene {
     // ZONE PROGRESSION
     // =========================================================================
 
+    // Returns how much distance must be driven per level inside the given
+    // zone (1-based). Later zones require more distance, i.e. levels come
+    // slower/harder as the run progresses.
+    private getDistancePerLevelForZone(
+        zone: number
+    ): number {
+
+        const index =
+            Phaser.Math.Clamp(
+                zone - 1,
+                0,
+                this.ZONE_DISTANCE_PER_LEVEL.length - 1
+            );
+
+        return (
+            this.ZONE_DISTANCE_PER_LEVEL[index] ??
+            this.DISTANCE_PER_LEVEL
+        );
+
+    }
+
     private updateZoneProgress(
         delta: number
     ) {
+
+        // ---------------------------------------------------------
+        // ENDING SCREEN TYPEWRITER (takes priority)
+        // ---------------------------------------------------------
 
         if (
             this.endingScreenActive
@@ -2107,20 +2268,28 @@ export default class GameScene extends Phaser.Scene {
             delta;
 
 
-        this.levelElapsed +=
-            delta;
+        // LEVEL now advances by distance traveled since this zone started,
+        // not by real time. Driving faster (including via Nitro) reaches
+        // the next level sooner. ZONE progress is derived from the same
+        // distance value below, so the two stay in sync.
+        const distanceIntoZone =
+            this.distance -
+            this.zoneStartDistance;
+
+
+        const distancePerLevel =
+            this.getDistancePerLevelForZone(
+                this.currentZone
+            );
 
 
         while (
-            this.levelElapsed >=
-                this.LEVEL_DURATION &&
             this.currentLevel <
-                this.LEVELS_PER_ZONE
+                this.LEVELS_PER_ZONE &&
+            distanceIntoZone >=
+                this.currentLevel *
+                distancePerLevel
         ) {
-
-            this.levelElapsed -=
-                this.LEVEL_DURATION;
-
 
             this.currentLevel++;
 
@@ -2130,14 +2299,19 @@ export default class GameScene extends Phaser.Scene {
         }
 
 
+        // ZONE now finishes as soon as the distance for all
+        // LEVELS_PER_ZONE levels has been covered, instead of on a
+        // separate real-time timer. This keeps level and zone progress
+        // in sync: reaching level 10 no longer leaves you idle waiting
+        // for an unrelated timer to expire.
+        const zoneDistanceRequired =
+            this.LEVELS_PER_ZONE *
+            distancePerLevel;
+
         if (
-            this.zoneElapsed >=
-            this.ZONE_DURATION
+            distanceIntoZone >=
+            zoneDistanceRequired
         ) {
-
-            this.zoneElapsed -=
-                this.ZONE_DURATION;
-
 
             if (
                 this.currentZone <
@@ -2246,6 +2420,10 @@ export default class GameScene extends Phaser.Scene {
                         0;
 
 
+                    this.zoneStartDistance =
+                        this.distance;
+
+
                     this.bgCycleIndex =
                         0;
 
@@ -2265,6 +2443,7 @@ export default class GameScene extends Phaser.Scene {
                         this.road2
                     );
 
+                    // Rebuild the micro-seam with the new Zone's accent language.
                     this.drawRoadGapFX();
 
 
@@ -2443,6 +2622,8 @@ export default class GameScene extends Phaser.Scene {
                 this.storyVoicePlaying = true;
                 this.currentZoneSound = sound;
 
+                // The supplied MP3 is the absolute master clock.
+                // Never stretch subtitle timestamps to another duration.
                 this.narrationTimeScale = 1;
 
                 console.log(
@@ -2482,10 +2663,18 @@ export default class GameScene extends Phaser.Scene {
         this.playFallbackNarration(zone, fallbackText);
     }
 
+    // Rescales the hand-authored ZONE_NARRATION_LINES timestamps (which
+    // were measured against one specific export of the voice file) to the
+    // duration of whatever audio asset is actually loaded and about to
+    // play. Falls back to 1 (no rescale) whenever the real duration can't
+    // be read yet or looks unusable, so it never makes things worse.
     private computeNarrationTimeScale(
         sound: Phaser.Sound.BaseSound,
         zone: number
     ): number {
+        // Timestamps are measured against the exact supplied MP3 assets.
+        // Never stretch/compress them: sentence boundaries must follow the
+        // real waveform, including pauses inside a single sentence.
         return 1;
     }
 
@@ -2505,6 +2694,8 @@ export default class GameScene extends Phaser.Scene {
                     ? soundAny.seek()
                     : 0;
 
+        // If the audio contains speech that is not present in the supplied
+        // transcript, never display the previous sentence over it.
         const unmapped = this.ZONE_UNMAPPED_AUDIO[this.currentZone] ?? [];
         const inUnmappedAudio = unmapped.some(
             range => time >= range.start && time < range.end
@@ -2520,12 +2711,16 @@ export default class GameScene extends Phaser.Scene {
 
         let lineIndex = -1;
 
+        // The displayed line changes on the next spoken phrase start.
+        // We intentionally keep the previous line during natural micro-pauses
+        // so the UI never flickers or goes blank between two words/phrases.
         for (let i = 0; i < lines.length; i++) {
             const start = lines[i].start;
             if (time >= start) lineIndex = i;
             else break;
         }
 
+        // Before the first phrase there is no line to show.
         if (time < lines[0].start) lineIndex = -1;
 
         if (lineIndex === this.currentNarrationLine) return;
@@ -2543,9 +2738,13 @@ export default class GameScene extends Phaser.Scene {
 
         const line = lines[lineIndex];
 
+        // Exact sync mode: change the text immediately at the audio seek
+        // position. No tween/fade is allowed to introduce visual latency.
         this.zoneStoryText.setText(line.text);
         this.zoneStoryText.setAlpha(1);
         this.zoneStoryText.setScale(1);
+
+        // Do not add a camera shake here: narration timing should be visually exact.
     }
 
     private showFinalNarrationLine(zone: number) {
@@ -3282,7 +3481,7 @@ export default class GameScene extends Phaser.Scene {
 
 
     // =========================================================================
-    // NITRO ACTIVATION - ⚡ تغییرات اینجا اعمال شدن ⚡
+    // NITRO ACTIVATION
     // =========================================================================
 
     activateNitro() {
@@ -3320,17 +3519,15 @@ export default class GameScene extends Phaser.Scene {
         this.car.clearTint();
 
 
-        // ✅ افزایش شدت لرزش دوربین
         this.cameras.main.shake(
-            200,        // از 140 به 200
-            0.008       // از 0.0025 به 0.008
+            170,
+            0.004
         );
 
 
-        // ✅ افزایش زوم دوربین
         this.cameras.main.zoomTo(
-            1.08,       // از 1.035 به 1.08
-            200         // از 160 به 200
+            1.05,
+            170
         );
 
 
@@ -3341,17 +3538,15 @@ export default class GameScene extends Phaser.Scene {
         this.createNitroMegaFX();
 
 
-        // ✅ افزایش ضریب سرعت نیترو
         this.displaySpeed +=
             this.selectedCarStats.nitro *
-            1.2;        // از 0.55 به 1.2
+            1.3;
 
 
-        // ✅ افزایش حداکثر سرعت
         this.displaySpeed =
             Math.min(
                 this.displaySpeed,
-                850         // از 650 به 850
+                this.NITRO_MAX_SPEED
             );
 
     }
@@ -3397,13 +3592,13 @@ export default class GameScene extends Phaser.Scene {
 
 
         const radius =
-            45 *
+            65 *
             pulse;
 
 
         this.nitroGlow.fillStyle(
             0x00ffff,
-            0.06
+            0.11
         );
 
 
@@ -3416,7 +3611,7 @@ export default class GameScene extends Phaser.Scene {
 
         this.nitroGlow.fillStyle(
             0x8a5cff,
-            0.045
+            0.08
         );
 
 
@@ -3429,7 +3624,7 @@ export default class GameScene extends Phaser.Scene {
 
         if (
             this.nitroFXTimer >
-            60
+            40
         ) {
 
             this.nitroFXTimer =
@@ -3494,8 +3689,8 @@ export default class GameScene extends Phaser.Scene {
 
         const length =
             Phaser.Math.Between(
-                25,
-                58
+                35,
+                78
             );
 
 
@@ -3503,7 +3698,7 @@ export default class GameScene extends Phaser.Scene {
             side === 1
                 ? 0x00ffff
                 : 0x8a5cff,
-            0.45
+            0.65
         );
 
 
@@ -3733,7 +3928,7 @@ export default class GameScene extends Phaser.Scene {
 
         for (
             let i = 0;
-            i < 22;
+            i < 34;
             i++
         ) {
 
@@ -3763,7 +3958,7 @@ export default class GameScene extends Phaser.Scene {
                 i % 2 === 0
                     ? 0x00ffff
                     : 0x8a5cff,
-                0.75
+                0.88
             );
 
 
@@ -3771,8 +3966,8 @@ export default class GameScene extends Phaser.Scene {
                 x,
                 y,
                 Phaser.Math.Between(
-                    2,
-                    5
+                    3,
+                    7
                 )
             );
 
@@ -3784,8 +3979,8 @@ export default class GameScene extends Phaser.Scene {
                 y:
                     y +
                     Phaser.Math.Between(
-                        50,
-                        130
+                        70,
+                        170
                     ),
 
                 x:
@@ -3825,7 +4020,7 @@ export default class GameScene extends Phaser.Scene {
 
 
     // =========================================================================
-    // NITRO MEGA FX - ⚡ تغییرات اینجا اعمال شدن ⚡
+    // NITRO MEGA FX
     // =========================================================================
 
     private createNitroMegaFX() {
@@ -3836,7 +4031,7 @@ export default class GameScene extends Phaser.Scene {
 
         for (
             let i = 0;
-            i < 5;
+            i < 7;
             i++
         ) {
 
@@ -3915,7 +4110,7 @@ export default class GameScene extends Phaser.Scene {
 
         for (
             let i = 0;
-            i < 30;
+            i < 44;
             i++
         ) {
 
@@ -4021,12 +4216,12 @@ export default class GameScene extends Phaser.Scene {
 
 
         // ---------------------------------------------------------
-        // SPEED STREAKS - ✅ تغییرات اینجا اعمال شدن ✅
+        // SPEED STREAKS
         // ---------------------------------------------------------
 
         for (
             let i = 0;
-            i < 24;
+            i < 34;
             i++
         ) {
 
@@ -4046,19 +4241,17 @@ export default class GameScene extends Phaser.Scene {
                 );
 
 
-            // ✅ افزایش محدوده شروع خطوط
             const y =
                 Phaser.Math.Between(
-                    -100,    // از 0 به -100
+                    0,
                     800
                 );
 
 
-            // ✅ افزایش طول خطوط
             const length =
                 Phaser.Math.Between(
-                    100,     // از 70 به 100
-                    280      // از 190 به 280
+                    70,
+                    190
                 );
 
 
@@ -4124,27 +4317,26 @@ export default class GameScene extends Phaser.Scene {
 
 
         // ---------------------------------------------------------
-        // CAMERA - ✅ تغییرات اینجا اعمال شدن ✅
+        // CAMERA
         // ---------------------------------------------------------
 
         this.cameras.main.shake(
-            220,
-            0.0065
+            260,
+            0.009
         );
 
 
         this.cameras.main.flash(
+            160,
             120,
-            80,
             255,
             255,
             false
         );
 
 
-        // ✅ افزایش زوم دوربین
         this.cameras.main.zoomTo(
-            1.045,      // از 1.045 همان
+            1.065,
             110,
             "Cubic.easeOut"
         );
@@ -4624,6 +4816,10 @@ export default class GameScene extends Phaser.Scene {
             this.car.y - 35;
 
 
+        // ---------------------------------------------------------
+        // Main ring
+        // ---------------------------------------------------------
+
         const ring =
             this.add.graphics();
 
@@ -4673,6 +4869,10 @@ export default class GameScene extends Phaser.Scene {
         });
 
 
+        // ---------------------------------------------------------
+        // Inner flash
+        // ---------------------------------------------------------
+
         const flash =
             this.add.graphics();
 
@@ -4717,6 +4917,10 @@ export default class GameScene extends Phaser.Scene {
 
         });
 
+
+        // ---------------------------------------------------------
+        // Crystal shards
+        // ---------------------------------------------------------
 
         for (
             let i = 0;
@@ -4803,6 +5007,10 @@ export default class GameScene extends Phaser.Scene {
 
         }
 
+
+        // ---------------------------------------------------------
+        // Pickup text
+        // ---------------------------------------------------------
 
         const text =
             this.add.text(
@@ -5387,7 +5595,7 @@ export default class GameScene extends Phaser.Scene {
 
 
     // =========================================================================
-    // UPDATE - ⚡ تغییرات اینجا اعمال شدن ⚡
+    // UPDATE
     // =========================================================================
 
     update() {
@@ -5451,6 +5659,8 @@ export default class GameScene extends Phaser.Scene {
                 this.ROAD_HEIGHT + this.ROAD_HEIGHT / 2
             ) {
 
+                // The road moves downward. Once a tile leaves the bottom,
+                // recycle it above the other tile so the loop stays continuous.
                 this.road1.y =
                     this.road2.y -
                     this.ROAD_SPACING;
@@ -5509,11 +5719,11 @@ export default class GameScene extends Phaser.Scene {
                 this.selectedCarStats.speed +
                 (
                     this.distance /
-                    1000
+                    500
                 ) *
                 1,
                 this.selectedCarStats.speed,
-                500
+                450
             );
 
 
@@ -5521,23 +5731,21 @@ export default class GameScene extends Phaser.Scene {
             this.nitroActive
         ) {
 
-            // ✅ افزایش حداکثر سرعت نیترو
             this.targetSpeed =
                 Math.min(
-                    850,        // از 650 به 850
+                    this.NITRO_MAX_SPEED,
                     this.targetSpeed +
                     this.selectedCarStats.nitro *
-                    1.2         // از 0.55 به 1.2
+                    1.3
                 );
 
         }
 
 
-        // ✅ افزایش شتاب نیترو
         const acceleration =
             this.nitroActive
-                ? 0.25       // از 0.1 به 0.25
-                : 0.03;
+                ? 1.4
+                : 0.2;
 
 
         if (
@@ -5569,7 +5777,7 @@ export default class GameScene extends Phaser.Scene {
             Phaser.Math.Clamp(
                 this.displaySpeed,
                 0,
-                650
+                this.NITRO_MAX_SPEED
             );
 
 
@@ -5685,6 +5893,11 @@ export default class GameScene extends Phaser.Scene {
         }
 
 
+        // Match the actual drivable road bounds.
+        // This gives the player a little more lateral freedom without
+        // allowing the vehicle to leave the road.
+        // Asphalt-only playable area. The yellow edge lines are outside this
+        // range, so the whole Player sprite stays on the road.
         const ROAD_LEFT =
             60;
 
@@ -5931,6 +6144,7 @@ export default class GameScene extends Phaser.Scene {
         }
 
 
+        // Try to detect magnet collection if the CrystalSystem exposes it.
         const crystalAny =
             this.crystal as any;
 
@@ -6001,6 +6215,8 @@ export default class GameScene extends Phaser.Scene {
         // GAME HUD
         // =====================================================================
 
+        // Keep the HUD speed stable: it changes by 1 only after the real speed
+        // clearly crosses the next integer, avoiding 62/63/62/63 flicker.
         if (
             this.displaySpeed >= this.hudSpeed + 1
         ) {
