@@ -96,17 +96,28 @@ export default class GameScene extends Phaser.Scene {
     nitroCooldown = false;
 
     // Real (non-cosmetic) nitro speed ceiling. Nitro is allowed to push
-    // displaySpeed above the normal 450 cap, all the way up to this value.
-    // Each car now defines its own ceiling (CarData.nitroMaxSpeed) — this
-    // constant is only a fallback for the rare case selectedCarStats hasn't
-    // loaded yet. The highest possible ceiling in the game is 750, on the
-    // most expensive car.
-    private readonly NITRO_MAX_SPEED_FALLBACK = 750;
+    // displaySpeed above the car's normal MAX_SPEED cap, all the way up to
+    // this value. Each car defines its own ceiling (CarData.nitroMaxSpeed) —
+    // this constant is only a fallback for the rare case selectedCarStats
+    // hasn't loaded yet. The highest possible ceiling in the game is 950,
+    // on the most expensive car.
+    private readonly NITRO_MAX_SPEED_FALLBACK = 950;
 
     // Current car's actual nitro speed ceiling, resolved every frame from
     // selectedCarStats so each car can have a different cap.
     private get NITRO_MAX_SPEED(): number {
         return this.selectedCarStats?.nitroMaxSpeed ?? this.NITRO_MAX_SPEED_FALLBACK;
+    }
+
+    // Real (non-cosmetic) normal (non-nitro) speed ceiling. Each car defines
+    // its own ceiling (CarData.maxSpeed) — this constant is only a fallback
+    // for the rare case selectedCarStats hasn't loaded yet.
+    private readonly MAX_SPEED_FALLBACK = 450;
+
+    // Current car's actual normal speed ceiling, resolved every frame from
+    // selectedCarStats so each car can have a different cap.
+    private get MAX_SPEED(): number {
+        return this.selectedCarStats?.maxSpeed ?? this.MAX_SPEED_FALLBACK;
     }
 
     private nitroFXTimer = 0;
@@ -5723,7 +5734,7 @@ export default class GameScene extends Phaser.Scene {
                 ) *
                 1,
                 this.selectedCarStats.speed,
-                450
+                this.MAX_SPEED
             );
 
 

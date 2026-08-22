@@ -6,6 +6,11 @@ export type CarData = {
     nitro: number;
     handling: number;
 
+    // Hard normal (non-nitro) speed ceiling for this car (displaySpeed can
+    // never exceed this while nitro is NOT active). Fixed per car — not
+    // affected by upgrades.
+    maxSpeed: number;
+
     // Hard nitro speed ceiling for this car (displaySpeed can never exceed
     // this while nitro is active). Fixed per car — not affected by upgrades.
     nitroMaxSpeed: number;
@@ -25,6 +30,7 @@ export type CalculatedStats = {
     speed: number;
     nitro: number;
     handling: number;
+    maxSpeed: number;
     nitroMaxSpeed: number;
     width: number;
     height: number;
@@ -47,7 +53,8 @@ export default class CarSystem {
             nitro: 50,
             handling: 70,
 
-            nitroMaxSpeed: 600,
+            maxSpeed: 600,
+            nitroMaxSpeed: 750,
 
             price: 0,
 
@@ -72,9 +79,10 @@ export default class CarSystem {
             nitro: 60,
             handling: 80,
 
-            nitroMaxSpeed: 600,
+            maxSpeed: 650,
+            nitroMaxSpeed: 800,
 
-            price: 500,
+            price: 2000,
 
             texture: "taxi",
 
@@ -97,9 +105,10 @@ export default class CarSystem {
             nitro: 90,
             handling: 85,
 
-            nitroMaxSpeed: 680,
+            maxSpeed: 700,
+            nitroMaxSpeed: 850,
 
-            price: 1500,
+            price: 5000,
 
             texture: "sport",
 
@@ -122,10 +131,11 @@ export default class CarSystem {
             nitro: 120,
             handling: 95,
 
-            // Most expensive car — highest nitro speed ceiling in the game.
-            nitroMaxSpeed: 750,
+            // Most expensive car — highest speed ceilings in the game.
+            maxSpeed: 750,
+            nitroMaxSpeed: 950,
 
-            price: 4000,
+            price: 10000,
 
             texture: "super",
 
@@ -148,9 +158,10 @@ export default class CarSystem {
             nitro: 40,
             handling: 45,
 
-            nitroMaxSpeed: 520,
+            maxSpeed: 550,
+            nitroMaxSpeed: 680,
 
-            price: 2500,
+            price: 4000,
 
             texture: "truck",
 
@@ -173,9 +184,10 @@ export default class CarSystem {
             nitro: 30,
             handling: 35,
 
-            nitroMaxSpeed: 520,
+            maxSpeed: 500,
+            nitroMaxSpeed: 650,
 
-            price: 2000,
+            price: 7000,
 
             texture: "bus",
 
@@ -255,6 +267,10 @@ export default class CarSystem {
 
             handling:
                 Math.round(car.handling + bonus),
+
+            // Fixed per car — upgrades don't raise the normal speed ceiling.
+            maxSpeed:
+                car.maxSpeed,
 
             // Fixed per car — upgrades don't raise the nitro speed ceiling.
             nitroMaxSpeed:
